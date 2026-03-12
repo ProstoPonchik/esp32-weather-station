@@ -15,6 +15,7 @@ Modern touch-screen weather station with LVGL 8.4 interface, WiFi, NTP time sync
 - **WiFi**: Automatic connection and NTP time synchronization
 - **Weather**: OpenWeatherMap OneCall API 3.0 integration
 - **Display**: ST7796 480x320 TFT @ 40MHz SPI
+- **Power Save**: Display auto-sleep after 60s inactivity, wake on touch
 
 ## Hardware
 
@@ -28,6 +29,7 @@ Modern touch-screen weather station with LVGL 8.4 interface, WiFi, NTP time sync
 | CS       | 10            |
 | DC       | 9             |
 | RST      | 46            |
+| BL/LED   | 42 (configurable in `include/app_config.h`) |
 
 ### I2C Sensors
 
@@ -47,7 +49,7 @@ Modern touch-screen weather station with LVGL 8.4 interface, WiFi, NTP time sync
 
 ### WiFi Settings
 
-Edit in `src/main.cpp`:
+Store secrets in `src/config.h` (copy from `src/config.h.example`):
 ```cpp
 #define WIFI_SSID       "YourSSID"
 #define WIFI_PASSWORD   "YourPassword"
@@ -57,11 +59,16 @@ Edit in `src/main.cpp`:
 
 Get free API key from [OpenWeatherMap](https://openweathermap.org/api/one-call-3):
 
+Set API config in `src/config.h`:
 ```cpp
 #define WEATHER_LAT     48.3064  // Your latitude
 #define WEATHER_LON     14.2858  // Your longitude  
 #define WEATHER_API_KEY "your_api_key_here"
 ```
+
+### Hardware & Timing Configuration
+
+Pins, display sleep timeout, and update intervals are configured in `include/app_config.h`.
 
 ## Build & Upload
 
@@ -77,6 +84,19 @@ pio run -t upload
 # Monitor
 pio run -t monitor
 ```
+
+## Architecture
+
+The project now uses a modular layout coordinated by `app` orchestration:
+
+- `app`: setup/loop orchestration and scheduling
+- `display`: SPI LCD + LVGL init/flush/sleep/backlight
+- `touch`: FT6336 polling and LVGL touch callback
+- `sensor`: SHT41 init/read
+- `network`: WiFi, NTP, and weather API
+- `ui`: LVGL screen creation and UI updates
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for module map and data flow.
 
 ## Dependencies
 
@@ -122,7 +142,7 @@ Generated with bpp=4 (16 grayscale levels)
 - **FPS**: 20-30 frames (optimized LVGL tick 1ms, buffer 80 lines)
 - **Flash**: 89.4% (1172KB / 1310KB)
 - **RAM**: 34.9% (114KB / 327KB)
-- **PSRAM**: 8MB available
+- **PSRAM**: Depends on board variant and `platformio.ini` memory configuration
 
 ## Troubleshooting
 
@@ -137,7 +157,7 @@ Generated with bpp=4 (16 grayscale levels)
 - Ensure FT6336U address 0x38 detected
 
 ### WiFi Connection Failed
-- Check SSID and password in `main.cpp`
+- Check SSID and password in `src/config.h`
 - Verify 2.4GHz network (ESP32 doesn't support 5GHz)
 - Check router MAC filtering
 
