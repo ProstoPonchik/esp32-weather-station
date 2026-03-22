@@ -15,8 +15,28 @@ struct TimeSnapshot {
 };
 
 struct WeatherSnapshot {
+    struct HourlyPoint {
+        String time_label = "";
+        float temp_c = 0.0f;
+        String icon_code = "";
+        bool valid = false;
+    };
+
+    struct DailyPoint {
+        String day_label = "";
+        float min_c = 0.0f;
+        float max_c = 0.0f;
+        String icon_code = "";
+        bool valid = false;
+    };
+
     float temp_c = 0.0f;
     String description = "";
+    String icon_code = "";
+    String sunrise = "";
+    String sunset = "";
+    HourlyPoint hourly[3] = {};
+    DailyPoint daily[3] = {};
     bool valid = false;
     uint32_t updated_ms = 0;
 };
@@ -37,10 +57,10 @@ struct AppState {
     uint32_t last_activity_ms = 0;
     uint32_t last_sensor_update_ms = 0;
     uint32_t last_time_update_ms = 0;
+    uint32_t last_debug_log_ms = 0;
 
     SensorSnapshot sensor = {};
     TimeSnapshot time = {};
     WeatherSnapshot weather = {};
     TouchPoint touch = {};
 };
-

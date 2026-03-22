@@ -62,7 +62,9 @@ constexpr uint8_t APP_FT6336_REG_P1_XH = 0x03;
 constexpr int APP_LCD_H_RES = 480;
 constexpr int APP_LCD_V_RES = 320;
 constexpr spi_host_device_t APP_LCD_SPI_HOST = SPI2_HOST;
-constexpr uint32_t APP_LCD_PIXEL_CLK = 40000000;
+constexpr uint32_t APP_LCD_PIXEL_CLK = 60000000;
+constexpr bool APP_LCD_COLOR_ORDER_BGR = true;
+constexpr bool APP_LCD_INVERT_COLORS = true;
 
 // Timing
 constexpr uint32_t APP_LVGL_TICK_PERIOD_MS = 1;
@@ -72,7 +74,13 @@ constexpr uint32_t APP_SENSOR_UPDATE_INTERVAL_MS = 2000;
 constexpr uint32_t APP_TIME_UPDATE_INTERVAL_MS = 1000;
 constexpr uint32_t APP_WEATHER_UPDATE_INTERVAL_MS = 600000;
 constexpr uint32_t APP_I2C_TIMEOUT_MS = 100;
-constexpr uint32_t APP_TOUCH_I2C_FREQ_HZ = 100000;
+constexpr uint32_t APP_TOUCH_I2C_FREQ_HZ = 400000;
+constexpr uint32_t APP_TOUCH_POLL_INTERVAL_MS = 2;
+constexpr uint8_t APP_TOUCH_SMOOTHING_SHIFT = 0;
+constexpr uint8_t APP_TOUCH_SCROLL_LIMIT_PX = 2;
+constexpr uint8_t APP_TOUCH_SCROLL_THROW = 4;
+constexpr uint8_t APP_TOUCH_GESTURE_LIMIT_PX = 8;
+constexpr uint8_t APP_TOUCH_GESTURE_MIN_VELOCITY = 1;
 
 // ESP32-S3 MSPI pins are reserved for flash/PSRAM and must not be reused.
 #if defined(CONFIG_SPIRAM_MODE_OCT)

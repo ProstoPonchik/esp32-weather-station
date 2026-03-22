@@ -189,12 +189,12 @@ Initializing touch screen... OK!
 ## Future Enhancements
 
 - [ ] BME680 air quality sensor integration
-- [ ] Weather forecast (hourly/daily)
-- [ ] Weather icons instead of text
+- [x] Weather forecast (hourly/daily)
+- [x] Weather icons instead of text
 - [ ] Customizable themes
 - [ ] Settings screen with WiFi config
 - [ ] Multiple location support
-- [ ] Sunrise/sunset times
+- [x] Sunrise/sunset times
 
 ## License
 

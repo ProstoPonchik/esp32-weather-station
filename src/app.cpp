@@ -15,6 +15,7 @@ static AppState s_state;
 void app_setup()
 {
     Serial.begin(115200);
+    Serial.setDebugOutput(true);
     delay(1000);
 
     Serial.println("\n=== ESP32-S3 Weather Station ===\n");
@@ -79,6 +80,14 @@ void app_loop()
         ui_update_weather(s_state.weather);
     }
 
-    delay(1);
-}
+    if (now - s_state.last_debug_log_ms >= 5000) {
+        s_state.last_debug_log_ms = now;
+        Serial.printf("[App] alive=%lus wifi=%d weather_valid=%d weather_age=%lus\n",
+                      static_cast<unsigned long>(now / 1000UL),
+                      s_state.wifi_connected ? 1 : 0,
+                      s_state.weather.valid ? 1 : 0,
+                      static_cast<unsigned long>((now - s_state.weather.updated_ms) / 1000UL));
+    }
 
+    delay(0);
+}

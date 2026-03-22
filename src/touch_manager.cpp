@@ -14,6 +14,7 @@ static uint16_t s_touch_x = 0;
 static uint16_t s_touch_y = 0;
 static bool s_touch_pressed = false;
 static bool s_prev_pressed = false;
+static uint32_t s_last_poll_ms = 0;
 
 void touch_lvgl_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
@@ -71,6 +72,20 @@ void touch_poll(AppState &state, TouchPoint &point)
         return;
     }
 
+    uint32_t now = millis();
+    if (now - s_last_poll_ms < APP_TOUCH_POLL_INTERVAL_MS) {
+        if (s_touch_pressed) {
+            point.x = s_touch_y;
+            point.y = APP_LCD_V_RES - s_touch_x;
+            point.pressed = true;
+        }
+        point.just_pressed = point.pressed && !s_prev_pressed;
+        s_prev_pressed = point.pressed;
+        state.touch = point;
+        return;
+    }
+    s_last_poll_ms = now;
+
     uint8_t touches = s_touch.touched();
 
     if (touches > 0) {
@@ -88,8 +103,15 @@ void touch_poll(AppState &state, TouchPoint &point)
         uint16_t raw_y = ((data[0x05] & 0x0F) << 8) | data[0x06];
 
         if (raw_x > 0 || raw_y > 0) {
-            s_touch_x = raw_x;
-            s_touch_y = raw_y;
+            if (s_touch_pressed) {
+                uint32_t alpha_div = 1U << APP_TOUCH_SMOOTHING_SHIFT;
+                uint32_t alpha_keep = alpha_div - 1U;
+                s_touch_x = static_cast<uint16_t>((s_touch_x * alpha_keep + raw_x) / alpha_div);
+                s_touch_y = static_cast<uint16_t>((s_touch_y * alpha_keep + raw_y) / alpha_div);
+            } else {
+                s_touch_x = raw_x;
+                s_touch_y = raw_y;
+            }
             s_touch_pressed = true;
 
             point.x = s_touch_y;
@@ -98,16 +120,11 @@ void touch_poll(AppState &state, TouchPoint &point)
         } else {
             s_touch_pressed = false;
         }
-
-        s_touch.processTouch();
     } else {
         s_touch_pressed = false;
     }
-
-    s_touch.loop();
 
     point.just_pressed = point.pressed && !s_prev_pressed;
     s_prev_pressed = point.pressed;
     state.touch = point;
 }
-

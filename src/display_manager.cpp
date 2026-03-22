@@ -106,7 +106,7 @@ void display_init(AppState &state, display_touch_read_cb_t touch_read_cb)
 
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = APP_LCD_RST,
-        .color_space = ESP_LCD_COLOR_SPACE_RGB,
+        .color_space = APP_LCD_COLOR_ORDER_BGR ? ESP_LCD_COLOR_SPACE_BGR : ESP_LCD_COLOR_SPACE_RGB,
         .bits_per_pixel = 16,
     };
 
@@ -115,8 +115,10 @@ void display_init(AppState &state, display_touch_read_cb_t touch_read_cb)
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel_handle, false, false));
     ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(s_panel_handle, true));
-    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(s_panel_handle, false));
+    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(s_panel_handle, APP_LCD_INVERT_COLORS));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel_handle, true));
+    Serial.printf("[Display] Color order: %s\n", APP_LCD_COLOR_ORDER_BGR ? "BGR" : "RGB");
+    Serial.printf("[Display] Color inversion: %s\n", APP_LCD_INVERT_COLORS ? "ON" : "OFF");
 
     if (APP_LCD_BL >= 0) {
         Serial.printf("[Display] Backlight control pin: GPIO%d\n", APP_LCD_BL);
@@ -159,7 +161,16 @@ void display_init(AppState &state, display_touch_read_cb_t touch_read_cb)
     lv_indev_drv_init(&indev_drv);
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = touch_read_cb;
+    indev_drv.scroll_limit = APP_TOUCH_SCROLL_LIMIT_PX;
+    indev_drv.scroll_throw = APP_TOUCH_SCROLL_THROW;
+    indev_drv.gesture_limit = APP_TOUCH_GESTURE_LIMIT_PX;
+    indev_drv.gesture_min_velocity = APP_TOUCH_GESTURE_MIN_VELOCITY;
     lv_indev_drv_register(&indev_drv);
+    Serial.printf("[Touch] scroll_limit=%u throw=%u gesture_limit=%u velocity=%u\n",
+                  APP_TOUCH_SCROLL_LIMIT_PX,
+                  APP_TOUCH_SCROLL_THROW,
+                  APP_TOUCH_GESTURE_LIMIT_PX,
+                  APP_TOUCH_GESTURE_MIN_VELOCITY);
 
     state.display_sleeping = false;
 }
