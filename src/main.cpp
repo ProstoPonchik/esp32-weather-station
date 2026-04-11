@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include "app.h"
+#include "app/app.h"
 
 void setup()
 {
@@ -11,4 +11,3 @@ void loop()
 {
     app_loop();
 }
-

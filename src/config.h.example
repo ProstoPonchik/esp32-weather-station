@@ -17,4 +17,9 @@
 #define WEATHER_LON     14.2858  // Your longitude
 #define WEATHER_API_KEY "YOUR_API_KEY_HERE"  // Get free key from openweathermap.org
 
+// Optional BME680 overrides
+// #define BME680_ENABLED            1
+// #define BME680_I2C_ADDR_PRIMARY   0x76
+// #define BME680_I2C_ADDR_SECONDARY 0x77
+
 #endif

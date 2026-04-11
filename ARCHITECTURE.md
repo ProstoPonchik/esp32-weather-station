@@ -1,64 +1,66 @@
 # Architecture Overview
 
-This project is split into small C-style modules around a shared `AppState`.
+This project now uses a component-oriented layout with a central orchestrator (`app`) and a shared runtime state (`AppState`).
 
 ## Module Map
 
 ```text
 main.cpp
-  -> app.cpp (orchestrator)
-      -> display_manager.cpp   (SPI LCD, LVGL init/flush/tick, backlight, sleep)
-      -> touch_manager.cpp     (FT6336 init, polling, LVGL input callback)
-      -> sensor_service.cpp    (SHT41 init/read)
-      -> network_service.cpp   (WiFi connect, NTP sync/read, weather fetch)
-      -> ui_main.cpp           (LVGL screen creation + UI label updates)
+  -> app/app.cpp (setup/loop orchestration)
+      -> components/display/*          (SPI LCD, LVGL init/flush/tick, sleep)
+      -> components/touch/*            (FT6336 init, polling, LVGL pointer callback)
+      -> components/network/*          (WiFi connect, NTP, OpenWeather API)
+      -> components/sensors/sensor_manager/*
+          -> drivers/sht41/*           (SHT41 init/read)
+          -> drivers/bme680/*          (BME680 init/read, forced mode)
+      -> ui/presenters/*               (tile creation + UI updates)
+      -> ui/assets/*                   (fonts, weather icons)
 
-Shared types/config:
-  include/app_types.h          (AppState + snapshots)
-  include/app_config.h         (pins, intervals, MSPI safety checks)
+Shared config/types:
+  include/core/app_config.h
+  include/core/app_types.h
 ```
 
 ## State Ownership
 
-- `AppState` is the single shared runtime state (`wifi_connected`, `touch_available`, `display_sleeping`, timers, snapshots).
-- Service modules update snapshots in `AppState`.
-- UI module only renders snapshot data; it does not read sensors or network directly.
+- `AppState` is the single source of runtime truth (`wifi_connected`, sensor availability flags, timers, snapshots).
+- `SensorAggregate` stores:
+  - `sht41`
+  - `bme680`
+  - `primary` climate snapshot (`temp/humidity + source`)
+- `sensor_manager` updates sensor snapshots and promotes the last valid reading to `primary`.
+- UI only renders snapshots and does not access hardware directly.
 
-## Data Flow
+## Sensor Flow
 
-### Setup Flow (`app_setup`)
+### Setup
 
-1. Init display + LVGL.
-2. Init sensor and touch.
-3. Build UI.
-4. Read initial sensor snapshot and render.
-5. Connect WiFi; if connected:
-   - sync time
-   - read time snapshot and render
-   - fetch weather snapshot and render
-6. Save `last_activity_ms`.
+1. Init shared sensor I2C bus (`Wire`, GPIO1/GPIO2).
+2. Init SHT41 driver.
+3. Init BME680 driver with auto-address fallback (`0x76` -> `0x77`).
+4. Perform initial reads of both sensors.
+5. Promote latest valid reading to `primary`.
 
-### Loop Flow (`app_loop`)
+### Loop
 
-1. Poll touch (`touch_poll`).
-2. If touch is pressed:
-   - update `last_activity_ms`
-   - wake display if sleeping.
-3. Run LVGL handler (`display_lvgl_handle`).
-4. Sleep policy:
-   - if inactivity exceeds `APP_DISPLAY_SLEEP_TIMEOUT_MS`, put display to sleep.
-5. Periodic jobs:
-   - sensor update every `APP_SENSOR_UPDATE_INTERVAL_MS`
-   - time update every `APP_TIME_UPDATE_INTERVAL_MS` (when WiFi is connected)
-   - weather update every `APP_WEATHER_UPDATE_INTERVAL_MS` (when WiFi is connected)
-6. `delay(1)`.
+- Every `APP_SENSOR_UPDATE_INTERVAL_MS`, `sensor_manager_tick` runs.
+- If both sensors are available, reads are alternated:
+  - tick N: SHT41
+  - tick N+1: BME680
+- If only one sensor is available, manager reads only that sensor.
+- Home screen is fed from `primary`; Sensors+ screen shows each sensor separately.
+
+## UI Tiles
+
+- `HOME`: primary temperature/humidity + source marker.
+- `TIME`: local time/date.
+- `WEATHER`: current weather card.
+- `FORECAST`: hourly/daily forecast rows.
+- `SENSORS+`: dedicated SHT41 panel and BME680 panel (T/H/P/Gas raw).
 
 ## Design Rules
 
-- Keep behavior stable first; prefer safe cleanup over logic rewrites.
-- Keep module boundaries strict:
-  - hardware/service modules do IO
-  - `app.cpp` schedules and coordinates
-  - `ui_main.cpp` only draws data it receives
-- Keep pin and timing constants in `app_config.h`.
-
+- Keep hardware IO inside component drivers/services.
+- Keep scheduling decisions in `app/app.cpp`.
+- Keep rendering logic in UI presenter module.
+- Prefer additive changes to snapshots and config constants over hidden globals.

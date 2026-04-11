@@ -1,6 +1,6 @@
 # ESP32-S3 Weather Station
 
-Modern touch-screen weather station with LVGL 8.4 interface, WiFi, NTP time sync, and OpenWeatherMap API integration.
+Touch-screen weather station on ESP32-S3 with LVGL UI, WiFi/NTP, OpenWeatherMap integration, and dual local sensors (SHT41 + BME680).
 
 ![ESP32-S3](https://img.shields.io/badge/ESP32--S3-240MHz-blue)
 ![LVGL](https://img.shields.io/badge/LVGL-8.4.0-green)
@@ -8,14 +8,15 @@ Modern touch-screen weather station with LVGL 8.4 interface, WiFi, NTP time sync
 
 ## Features
 
-- **Modern UI**: Dark theme with card-based design, anti-aliased JetBrains Mono fonts
-- **Three Screens**: Swipeable tileview (Home/Time/Weather)
-- **Sensors**: SHT41 temperature & humidity sensor  
-- **Touch**: FT6336U capacitive touch with swipe gestures
-- **WiFi**: Automatic connection and NTP time synchronization
-- **Weather**: OpenWeatherMap OneCall API 3.0 integration
-- **Display**: ST7796 480x320 TFT @ 40MHz SPI
-- **Power Save**: Display auto-sleep after 60s inactivity, wake on touch
+- Component-oriented architecture (`app/core/components/ui`)
+- 5 swipeable tiles: `Home`, `Time`, `Weather`, `Forecast`, `Sensors+`
+- Dual sensor stack on shared I2C bus:
+  - SHT41: temperature + humidity
+  - BME680: temperature + humidity + pressure + gas resistance (raw)
+- Sensor manager with alternating polling (`SHT41` / `BME680`)
+- Home screen shows latest valid primary climate reading source (`SHT41` or `BME680`)
+- WiFi + NTP time sync + OpenWeatherMap OneCall 3.0
+- Auto display sleep/wake by touch activity
 
 ## Hardware
 
@@ -29,173 +30,101 @@ Modern touch-screen weather station with LVGL 8.4 interface, WiFi, NTP time sync
 | CS       | 10            |
 | DC       | 9             |
 | RST      | 46            |
-| BL/LED   | 42 (configurable in `include/app_config.h`) |
+| BL/LED   | 42            |
 
 ### I2C Sensors
 
-**Bus 0 (SHT41 Sensor)**:
+**Bus 0 (`Wire`)**
 - SDA: GPIO 1
 - SCL: GPIO 2
-- Address: 0x44
+- SHT41 address: `0x44`
+- BME680 address: auto fallback `0x76` -> `0x77`
 
-**Bus 1 (Touch FT6336U)**:
+**Bus 1 (`Wire1`) Touch FT6336U**
 - SDA: GPIO 40
-- SCL: GPIO 41  
+- SCL: GPIO 41
 - RST: GPIO 39
 - INT: GPIO 38
-- Address: 0x38
+- Address: `0x38`
+
+## Project Structure
+
+```text
+include/
+  app/app.h
+  core/{app_config.h, app_types.h}
+  components/
+    display/
+    touch/
+    network/
+    sensors/
+      sensor_manager/
+      drivers/{sht41,bme680}/
+  ui/
+    ui_main.h
+    assets/weather_icons.h
+
+src/
+  main.cpp
+  app/app.cpp
+  components/
+  ui/{presenters,assets,screens}
+
+lib/
+  Bosch-BME68x-Library/
+```
 
 ## Configuration
 
-### WiFi Settings
+Copy `src/config.h.example` to `src/config.h` and set your values:
 
-Store secrets in `src/config.h` (copy from `src/config.h.example`):
 ```cpp
 #define WIFI_SSID       "YourSSID"
 #define WIFI_PASSWORD   "YourPassword"
-```
 
-### Weather API
-
-Get free API key from [OpenWeatherMap](https://openweathermap.org/api/one-call-3):
-
-Set API config in `src/config.h`:
-```cpp
-#define WEATHER_LAT     48.3064  // Your latitude
-#define WEATHER_LON     14.2858  // Your longitude  
+#define WEATHER_LAT     48.3064
+#define WEATHER_LON     14.2858
 #define WEATHER_API_KEY "your_api_key_here"
+
+// Optional BME680 overrides
+// #define BME680_ENABLED            1
+// #define BME680_I2C_ADDR_PRIMARY   0x76
+// #define BME680_I2C_ADDR_SECONDARY 0x77
 ```
 
-### Hardware & Timing Configuration
-
-Pins, display sleep timeout, and update intervals are configured in `include/app_config.h`.
+Main hardware/timing constants are in `include/core/app_config.h`.
 
 ## Build & Upload
 
-Using PlatformIO:
-
 ```bash
-# Build
 pio run
-
-# Upload
 pio run -t upload
-
-# Monitor
 pio run -t monitor
 ```
 
-## Architecture
+## Sensors+ Tile
 
-The project now uses a modular layout coordinated by `app` orchestration:
+The new `Sensors+` page contains two separate panels:
 
-- `app`: setup/loop orchestration and scheduling
-- `display`: SPI LCD + LVGL init/flush/sleep/backlight
-- `touch`: FT6336 polling and LVGL touch callback
-- `sensor`: SHT41 init/read
-- `network`: WiFi, NTP, and weather API
-- `ui`: LVGL screen creation and UI updates
+- `SHT41`: temperature/humidity + availability status
+- `BME680`: temperature/humidity/pressure/gas raw + availability status
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for module map and data flow.
+If a sensor is missing or invalid, UI shows placeholders (`--`) and availability state.
 
 ## Dependencies
 
-Managed automatically by PlatformIO (`platformio.ini`):
+Managed via PlatformIO:
 
-- **LVGL 8.4.0**: Graphics library
-- **Adafruit SHT4x**: Temperature/humidity sensor
-- **FT6X36**: Touch controller library
-- **ArduinoJson**: Weather API parsing
-- **WiFi & HTTPClient**: Network connectivity
+- `lvgl/lvgl`
+- `Adafruit SHT4x`
+- `FT6X36`
+- `ArduinoJson`
+- Local vendor lib: `lib/Bosch-BME68x-Library`
 
-## UI Screens
+## Architecture Notes
 
-### Screen 1: Home (Sensors)
-- Temperature card (°C) with real-time SHT41 readings
-- Humidity card (%) with gradient display
-- Card-based design with rounded corners
-
-### Screen 2: Time
-- Large 48px time display (HH:MM)
-- Date with day of week
-- NTP synchronized (GMT+1 + DST)
-
-### Screen 3: Weather
-- Current temperature from OpenWeatherMap
-- Weather description (clouds, rain, etc.)
-- Location display (Linz, Austria)
-- Auto-update every 10 minutes
-
-## Custom Fonts
-
-Anti-aliased JetBrains Mono fonts included:
-- **24px**: Labels, hints, descriptions
-- **32px**: Reserved for future use
-- **48px**: Large displays (time, temperature)
-
-Fonts support: `0x20-0x7E` + degree symbol `°`
-
-Generated with bpp=4 (16 grayscale levels)
-
-## Performance
-
-- **FPS**: 20-30 frames (optimized LVGL tick 1ms, buffer 80 lines)
-- **Flash**: 89.4% (1172KB / 1310KB)
-- **RAM**: 34.9% (114KB / 327KB)
-- **PSRAM**: Depends on board variant and `platformio.ini` memory configuration
-
-## Troubleshooting
-
-### Display Issues
-- Check SPI connections (MOSI, MISO, SCLK, CS, DC, RST)
-- Verify 3.3V power supply
-- Try reducing SPI frequency to 20MHz
-
-### Touch Not Working
-- Verify I2C Bus 1 connections (SDA=40, SCL=41)
-- Check hardware reset pin (RST=39)
-- Ensure FT6336U address 0x38 detected
-
-### WiFi Connection Failed
-- Check SSID and password in `src/config.h`
-- Verify 2.4GHz network (ESP32 doesn't support 5GHz)
-- Check router MAC filtering
-
-### Weather Not Updating
-- Verify API key validity on OpenWeatherMap dashboard
-- Check OneCall API 3.0 subscription (free tier available)
-- Monitor serial output for HTTP error codes
-
-## Serial Monitor Output
-
-Expected output (115200 baud):
-```
-=== ESP32-S3 Weather Station ===
-
-Initializing SPI bus...
-ST7796 initialized! Resolution: 480x320
-Initializing I2C buses...
-Initializing SHT41 sensor... OK!
-Initializing touch screen... OK!
-
-[WiFi] Connected!
-[WiFi] IP: 192.168.0.88
-[NTP] Time synced!
-[Weather] Temp: -3.9C, scattered clouds
-
-=== Setup Complete! ===
-```
-
-## Future Enhancements
-
-- [ ] BME680 air quality sensor integration
-- [x] Weather forecast (hourly/daily)
-- [x] Weather icons instead of text
-- [ ] Customizable themes
-- [ ] Settings screen with WiFi config
-- [ ] Multiple location support
-- [x] Sunrise/sunset times
+Detailed flow and ownership docs: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## License
 
-MIT License - Free for personal and commercial use.
+MIT License.
