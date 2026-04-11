@@ -13,15 +13,14 @@
 #define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
 
 // Weather API configuration
-#define WEATHER_LAT     48.3064  // Your latitude
-#define WEATHER_LON     14.2858  // Your longitude
+#define WEATHER_LAT     48.334184  // Your latitude
+#define WEATHER_LON     14.300342  // Your longitude
 #define WEATHER_API_KEY "YOUR_API_KEY_HERE"  // Get free key from openweathermap.org
 
 // Optional BME680 + BSEC2 overrides
 // #define BME680_ENABLED                     1
 // #define BME680_BSEC_ENABLED                1
 // #define BME680_I2C_ADDR_PRIMARY            0x76
-// #define BME680_I2C_ADDR_SECONDARY          0x77
 // #define BME680_PUBLISH_INTERVAL_MS         3000
 // #define BME680_SEA_LEVEL_HPA_DEFAULT       1013.25f
 // #define BME680_BSEC_STATE_SAVE_INTERVAL_MS 600000
