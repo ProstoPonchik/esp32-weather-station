@@ -55,6 +55,55 @@ struct UiRefs {
 
 static UiRefs s_ui;
 
+struct UiPalette {
+    lv_color_t bg_screen;
+    lv_color_t bg_tile;
+    lv_color_t bg_card;
+
+    lv_color_t text_primary;
+    lv_color_t text_title;
+    lv_color_t text_secondary;
+    lv_color_t text_muted;
+    lv_color_t text_hint;
+
+    lv_color_t accent_temp;
+    lv_color_t accent_humi;
+    lv_color_t accent_warm;
+};
+
+static const UiPalette &current_palette()
+{
+    static const UiPalette dark = {
+        .bg_screen = lv_color_hex(0x0A0E1A),
+        .bg_tile = lv_color_hex(0x0A0E1A),
+        .bg_card = lv_color_hex(0x1A1F2E),
+        .text_primary = lv_color_hex(0xFFFFFF),
+        .text_title = lv_color_hex(0x7B8FA1),
+        .text_secondary = lv_color_hex(0xAFC0D3),
+        .text_muted = lv_color_hex(0x5A6B7D),
+        .text_hint = lv_color_hex(0x3D4A5C),
+        .accent_temp = lv_color_hex(0xFF6B6B),
+        .accent_humi = lv_color_hex(0x4ECDC4),
+        .accent_warm = lv_color_hex(0xFFB84D),
+    };
+
+    static const UiPalette light = {
+        .bg_screen = lv_color_hex(0xF4F7FB),
+        .bg_tile = lv_color_hex(0xF4F7FB),
+        .bg_card = lv_color_hex(0xFFFFFF),
+        .text_primary = lv_color_hex(0x1A2433),
+        .text_title = lv_color_hex(0x2D3E55),
+        .text_secondary = lv_color_hex(0x3F536C),
+        .text_muted = lv_color_hex(0x5B6D82),
+        .text_hint = lv_color_hex(0x74879D),
+        .accent_temp = lv_color_hex(0xFF6B6B),
+        .accent_humi = lv_color_hex(0x4ECDC4),
+        .accent_warm = lv_color_hex(0xFFB84D),
+    };
+
+    return APP_UI_THEME_LIGHT ? light : dark;
+}
+
 static const lv_img_dsc_t *weather_icon_from_code(const String &icon_code)
 {
     if (icon_code == "01d") return &weather_icon_01d;
@@ -314,27 +363,28 @@ void ui_update_weather(const WeatherSnapshot &snapshot)
 void ui_init(AppState &state)
 {
     Serial.println("Creating modern tileview UI with BME680 page...");
+    const UiPalette &pal = current_palette();
 
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(lv_scr_act(), pal.bg_screen, 0);
 
     s_ui.tileview = lv_tileview_create(lv_scr_act());
     lv_obj_set_size(s_ui.tileview, APP_LCD_H_RES, APP_LCD_V_RES);
-    lv_obj_set_style_bg_color(s_ui.tileview, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(s_ui.tileview, pal.bg_tile, 0);
     lv_obj_set_style_border_width(s_ui.tileview, 0, 0);
 
     lv_obj_t *tile1 = lv_tileview_add_tile(s_ui.tileview, 0, 0, LV_DIR_RIGHT);
     s_ui.tile_home = tile1;
-    lv_obj_set_style_bg_color(tile1, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(tile1, pal.bg_tile, 0);
 
     lv_obj_t *title1 = lv_label_create(tile1);
     lv_label_set_text(title1, "HOME");
     lv_obj_set_style_text_font(title1, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(title1, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(title1, pal.text_title, 0);
     lv_obj_align(title1, LV_ALIGN_TOP_MID, 0, 15);
 
     lv_obj_t *temp_card = lv_obj_create(tile1);
     lv_obj_set_size(temp_card, 200, 110);
-    lv_obj_set_style_bg_color(temp_card, lv_color_hex(0x1A1F2E), 0);
+    lv_obj_set_style_bg_color(temp_card, pal.bg_card, 0);
     lv_obj_set_style_radius(temp_card, 15, 0);
     lv_obj_set_style_border_width(temp_card, 0, 0);
     lv_obj_set_style_pad_all(temp_card, 0, 0);
@@ -343,18 +393,18 @@ void ui_init(AppState &state)
     lv_obj_t *temp_icon = lv_label_create(temp_card);
     lv_label_set_text(temp_icon, "\xC2\xB0" "C");
     lv_obj_set_style_text_font(temp_icon, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(temp_icon, lv_color_hex(0xFF6B6B), 0);
+    lv_obj_set_style_text_color(temp_icon, pal.accent_temp, 0);
     lv_obj_align(temp_icon, LV_ALIGN_TOP_LEFT, 15, 15);
 
     s_ui.temp_label = lv_label_create(temp_card);
     lv_label_set_text(s_ui.temp_label, "--");
     lv_obj_set_style_text_font(s_ui.temp_label, &lv_font_jb_48, 0);
-    lv_obj_set_style_text_color(s_ui.temp_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(s_ui.temp_label, pal.text_primary, 0);
     lv_obj_align(s_ui.temp_label, LV_ALIGN_BOTTOM_LEFT, 15, -10);
 
     lv_obj_t *humi_card = lv_obj_create(tile1);
     lv_obj_set_size(humi_card, 200, 110);
-    lv_obj_set_style_bg_color(humi_card, lv_color_hex(0x1A1F2E), 0);
+    lv_obj_set_style_bg_color(humi_card, pal.bg_card, 0);
     lv_obj_set_style_radius(humi_card, 15, 0);
     lv_obj_set_style_border_width(humi_card, 0, 0);
     lv_obj_set_style_pad_all(humi_card, 0, 0);
@@ -363,74 +413,74 @@ void ui_init(AppState &state)
     lv_obj_t *humi_icon = lv_label_create(humi_card);
     lv_label_set_text(humi_icon, "%");
     lv_obj_set_style_text_font(humi_icon, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(humi_icon, lv_color_hex(0x4ECDC4), 0);
+    lv_obj_set_style_text_color(humi_icon, pal.accent_humi, 0);
     lv_obj_align(humi_icon, LV_ALIGN_TOP_LEFT, 15, 15);
 
     s_ui.humi_label = lv_label_create(humi_card);
     lv_label_set_text(s_ui.humi_label, "--");
     lv_obj_set_style_text_font(s_ui.humi_label, &lv_font_jb_48, 0);
-    lv_obj_set_style_text_color(s_ui.humi_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(s_ui.humi_label, pal.text_primary, 0);
     lv_obj_align(s_ui.humi_label, LV_ALIGN_BOTTOM_LEFT, 15, -10);
 
     s_ui.home_source_label = lv_label_create(tile1);
     lv_label_set_text(s_ui.home_source_label, "SRC: --");
     lv_obj_set_style_text_font(s_ui.home_source_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.home_source_label, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(s_ui.home_source_label, pal.text_title, 0);
     lv_obj_align(s_ui.home_source_label, LV_ALIGN_CENTER, 0, 55);
 
     lv_obj_t *hint1 = lv_label_create(tile1);
     lv_label_set_text(hint1, "< Swipe");
     lv_obj_set_style_text_font(hint1, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hint1, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_set_style_text_color(hint1, pal.text_hint, 0);
     lv_obj_align(hint1, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_t *tile2 = lv_tileview_add_tile(s_ui.tileview, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     s_ui.tile_time = tile2;
-    lv_obj_set_style_bg_color(tile2, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(tile2, pal.bg_tile, 0);
 
     lv_obj_t *title2 = lv_label_create(tile2);
     lv_label_set_text(title2, "TIME");
     lv_obj_set_style_text_font(title2, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(title2, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(title2, pal.text_title, 0);
     lv_obj_align(title2, LV_ALIGN_TOP_MID, 0, 15);
 
     s_ui.time_label = lv_label_create(tile2);
     lv_label_set_text(s_ui.time_label, "00:00");
     lv_obj_set_style_text_font(s_ui.time_label, &lv_font_jb_48, 0);
-    lv_obj_set_style_text_color(s_ui.time_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(s_ui.time_label, pal.text_primary, 0);
     lv_obj_align(s_ui.time_label, LV_ALIGN_CENTER, 0, -35);
 
     s_ui.date_label = lv_label_create(tile2);
     lv_label_set_text(s_ui.date_label, "Friday, January 3");
     lv_obj_set_style_text_font(s_ui.date_label, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(s_ui.date_label, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(s_ui.date_label, pal.text_title, 0);
     lv_obj_align(s_ui.date_label, LV_ALIGN_CENTER, 0, 25);
 
     lv_obj_t *hint2 = lv_label_create(tile2);
     lv_label_set_text(hint2, "< Swipe >");
     lv_obj_set_style_text_font(hint2, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hint2, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_set_style_text_color(hint2, pal.text_hint, 0);
     lv_obj_align(hint2, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_t *tile3 = lv_tileview_add_tile(s_ui.tileview, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT | LV_DIR_BOTTOM);
     s_ui.tile_weather = tile3;
-    lv_obj_set_style_bg_color(tile3, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(tile3, pal.bg_tile, 0);
 
     lv_obj_t *title3 = lv_label_create(tile3);
     lv_label_set_text(title3, "WEATHER");
     lv_obj_set_style_text_font(title3, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(title3, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(title3, pal.text_title, 0);
     lv_obj_align(title3, LV_ALIGN_TOP_MID, 0, 15);
 
     lv_obj_t *location = lv_label_create(tile3);
     lv_label_set_text(location, "Linz, Griesmayrstr. 23");
     lv_obj_set_style_text_font(location, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(location, lv_color_hex(0x5A6B7D), 0);
+    lv_obj_set_style_text_color(location, pal.text_muted, 0);
     lv_obj_align(location, LV_ALIGN_TOP_MID, 0, 50);
 
     lv_obj_t *weather_card = lv_obj_create(tile3);
     lv_obj_set_size(weather_card, 440, 150);
-    lv_obj_set_style_bg_color(weather_card, lv_color_hex(0x1A1F2E), 0);
+    lv_obj_set_style_bg_color(weather_card, pal.bg_card, 0);
     lv_obj_set_style_radius(weather_card, 20, 0);
     lv_obj_set_style_border_width(weather_card, 0, 0);
     lv_obj_set_style_pad_all(weather_card, 0, 0);
@@ -443,46 +493,46 @@ void ui_init(AppState &state)
     s_ui.weather_temp_label = lv_label_create(weather_card);
     lv_label_set_text(s_ui.weather_temp_label, "--\xC2\xB0");
     lv_obj_set_style_text_font(s_ui.weather_temp_label, &lv_font_jb_48, 0);
-    lv_obj_set_style_text_color(s_ui.weather_temp_label, lv_color_hex(0xFFB84D), 0);
+    lv_obj_set_style_text_color(s_ui.weather_temp_label, pal.accent_warm, 0);
     lv_obj_align(s_ui.weather_temp_label, LV_ALIGN_CENTER, 45, -45);
 
     s_ui.weather_sun_label = lv_label_create(weather_card);
     lv_label_set_text(s_ui.weather_sun_label, "SR --:--  SS --:--");
     lv_obj_set_style_text_font(s_ui.weather_sun_label, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(s_ui.weather_sun_label, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(s_ui.weather_sun_label, pal.text_title, 0);
     lv_obj_align(s_ui.weather_sun_label, LV_ALIGN_CENTER, 0, 22);
 
     s_ui.weather_uvi_label = lv_label_create(weather_card);
     lv_label_set_text(s_ui.weather_uvi_label, "UV Index: --");
     lv_obj_set_style_text_font(s_ui.weather_uvi_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.weather_uvi_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.weather_uvi_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.weather_uvi_label, LV_ALIGN_CENTER, -90, 56);
 
     s_ui.weather_pressure_label = lv_label_create(weather_card);
     lv_label_set_text(s_ui.weather_pressure_label, "Pressure: --");
     lv_obj_set_style_text_font(s_ui.weather_pressure_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.weather_pressure_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.weather_pressure_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.weather_pressure_label, LV_ALIGN_CENTER, 100, 56);
 
     lv_obj_t *hint3 = lv_label_create(tile3);
     lv_label_set_text(hint3, "Swipe >  |  Swipe left | Swipe up");
     lv_obj_set_style_text_font(hint3, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(hint3, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_set_style_text_color(hint3, pal.text_hint, 0);
     lv_obj_align(hint3, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_t *tile4 = lv_tileview_add_tile(s_ui.tileview, 2, 1, LV_DIR_TOP);
     s_ui.tile_forecast = tile4;
-    lv_obj_set_style_bg_color(tile4, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(tile4, pal.bg_tile, 0);
 
     lv_obj_t *title4 = lv_label_create(tile4);
     lv_label_set_text(title4, "FORECAST");
     lv_obj_set_style_text_font(title4, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(title4, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(title4, pal.text_title, 0);
     lv_obj_align(title4, LV_ALIGN_TOP_MID, 0, 15);
 
     lv_obj_t *forecast_card = lv_obj_create(tile4);
     lv_obj_set_size(forecast_card, 440, 220);
-    lv_obj_set_style_bg_color(forecast_card, lv_color_hex(0x1A1F2E), 0);
+    lv_obj_set_style_bg_color(forecast_card, pal.bg_card, 0);
     lv_obj_set_style_radius(forecast_card, 20, 0);
     lv_obj_set_style_border_width(forecast_card, 0, 0);
     lv_obj_set_style_pad_all(forecast_card, 0, 0);
@@ -491,13 +541,13 @@ void ui_init(AppState &state)
     lv_obj_t *hourly_title = lv_label_create(forecast_card);
     lv_label_set_text(hourly_title, "HOURLY");
     lv_obj_set_style_text_font(hourly_title, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hourly_title, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(hourly_title, pal.text_secondary, 0);
     lv_obj_align(hourly_title, LV_ALIGN_TOP_LEFT, 20, 12);
 
     lv_obj_t *daily_title = lv_label_create(forecast_card);
     lv_label_set_text(daily_title, "DAILY");
     lv_obj_set_style_text_font(daily_title, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(daily_title, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(daily_title, pal.text_title, 0);
     lv_obj_align(daily_title, LV_ALIGN_TOP_LEFT, 240, 12);
 
     for (int i = 0; i < 3; i++) {
@@ -510,7 +560,7 @@ void ui_init(AppState &state)
         s_ui.weather_hourly_label[i] = lv_label_create(forecast_card);
         lv_label_set_text(s_ui.weather_hourly_label[i], "--:--  --\xC2\xB0");
         lv_obj_set_style_text_font(s_ui.weather_hourly_label[i], &lv_font_jb_16, 0);
-        lv_obj_set_style_text_color(s_ui.weather_hourly_label[i], lv_color_hex(0xAFC0D3), 0);
+        lv_obj_set_style_text_color(s_ui.weather_hourly_label[i], pal.text_secondary, 0);
         lv_obj_align(s_ui.weather_hourly_label[i], LV_ALIGN_TOP_LEFT, 72, y + 13);
 
         s_ui.weather_daily_icon[i] = lv_img_create(forecast_card);
@@ -520,29 +570,29 @@ void ui_init(AppState &state)
         s_ui.weather_daily_label[i] = lv_label_create(forecast_card);
         lv_label_set_text(s_ui.weather_daily_label[i], "---  --/--\xC2\xB0");
         lv_obj_set_style_text_font(s_ui.weather_daily_label[i], &lv_font_jb_16, 0);
-        lv_obj_set_style_text_color(s_ui.weather_daily_label[i], lv_color_hex(0x7B8FA1), 0);
+        lv_obj_set_style_text_color(s_ui.weather_daily_label[i], pal.text_title, 0);
         lv_obj_align(s_ui.weather_daily_label[i], LV_ALIGN_TOP_LEFT, 292, y + 13);
     }
 
     lv_obj_t *hint4 = lv_label_create(tile4);
     lv_label_set_text(hint4, "Swipe down");
     lv_obj_set_style_text_font(hint4, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hint4, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_set_style_text_color(hint4, pal.text_hint, 0);
     lv_obj_align(hint4, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_t *tile5 = lv_tileview_add_tile(s_ui.tileview, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     s_ui.tile_sensors_plus = tile5;
-    lv_obj_set_style_bg_color(tile5, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(tile5, pal.bg_tile, 0);
 
     lv_obj_t *title5 = lv_label_create(tile5);
     lv_label_set_text(title5, "SENSORS+");
     lv_obj_set_style_text_font(title5, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(title5, lv_color_hex(0x7B8FA1), 0);
+    lv_obj_set_style_text_color(title5, pal.text_title, 0);
     lv_obj_align(title5, LV_ALIGN_TOP_MID, 0, 15);
 
     lv_obj_t *sht_card = lv_obj_create(tile5);
     lv_obj_set_size(sht_card, 440, 180);
-    lv_obj_set_style_bg_color(sht_card, lv_color_hex(0x1A1F2E), 0);
+    lv_obj_set_style_bg_color(sht_card, pal.bg_card, 0);
     lv_obj_set_style_radius(sht_card, 18, 0);
     lv_obj_set_style_border_width(sht_card, 0, 0);
     lv_obj_set_style_pad_all(sht_card, 0, 0);
@@ -551,40 +601,40 @@ void ui_init(AppState &state)
     s_ui.sht_status_label = lv_label_create(sht_card);
     lv_label_set_text(s_ui.sht_status_label, "SHT41: --");
     lv_obj_set_style_text_font(s_ui.sht_status_label, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(s_ui.sht_status_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.sht_status_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.sht_status_label, LV_ALIGN_TOP_LEFT, 20, 18);
 
     s_ui.sht_temp_label = lv_label_create(sht_card);
     lv_label_set_text(s_ui.sht_temp_label, "T: --");
     lv_obj_set_style_text_font(s_ui.sht_temp_label, &lv_font_jb_32, 0);
-    lv_obj_set_style_text_color(s_ui.sht_temp_label, lv_color_hex(0xFF6B6B), 0);
+    lv_obj_set_style_text_color(s_ui.sht_temp_label, pal.accent_temp, 0);
     lv_obj_align(s_ui.sht_temp_label, LV_ALIGN_TOP_LEFT, 20, 70);
 
     s_ui.sht_humi_label = lv_label_create(sht_card);
     lv_label_set_text(s_ui.sht_humi_label, "H: --");
     lv_obj_set_style_text_font(s_ui.sht_humi_label, &lv_font_jb_32, 0);
-    lv_obj_set_style_text_color(s_ui.sht_humi_label, lv_color_hex(0x4ECDC4), 0);
+    lv_obj_set_style_text_color(s_ui.sht_humi_label, pal.accent_humi, 0);
     lv_obj_align(s_ui.sht_humi_label, LV_ALIGN_TOP_LEFT, 240, 70);
 
     lv_obj_t *hint5 = lv_label_create(tile5);
     lv_label_set_text(hint5, "Swipe < or >");
     lv_obj_set_style_text_font(hint5, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hint5, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_set_style_text_color(hint5, pal.text_hint, 0);
     lv_obj_align(hint5, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_t *tile6 = lv_tileview_add_tile(s_ui.tileview, 4, 0, LV_DIR_RIGHT | LV_DIR_LEFT);
     s_ui.tile_bme680 = tile6;
-    lv_obj_set_style_bg_color(tile6, lv_color_hex(0x0A0E1A), 0);
+    lv_obj_set_style_bg_color(tile6, pal.bg_tile, 0);
 
     lv_obj_t *title6 = lv_label_create(tile6);
     lv_label_set_text(title6, "BME680");
     lv_obj_set_style_text_font(title6, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(title6, lv_color_hex(0xFFB84D), 0);
+    lv_obj_set_style_text_color(title6, pal.accent_warm, 0);
     lv_obj_align(title6, LV_ALIGN_TOP_MID, 0, 15);
 
     lv_obj_t *bme_card = lv_obj_create(tile6);
     lv_obj_set_size(bme_card, 440, 230);
-    lv_obj_set_style_bg_color(bme_card, lv_color_hex(0x1A1F2E), 0);
+    lv_obj_set_style_bg_color(bme_card, pal.bg_card, 0);
     lv_obj_set_style_radius(bme_card, 18, 0);
     lv_obj_set_style_border_width(bme_card, 0, 0);
     lv_obj_set_style_pad_all(bme_card, 0, 0);
@@ -593,61 +643,61 @@ void ui_init(AppState &state)
     s_ui.bme_status_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_status_label, "Status: --");
     lv_obj_set_style_text_font(s_ui.bme_status_label, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(s_ui.bme_status_label, lv_color_hex(0xFFB84D), 0);
+    lv_obj_set_style_text_color(s_ui.bme_status_label, pal.accent_warm, 0);
     lv_obj_align(s_ui.bme_status_label, LV_ALIGN_TOP_LEFT, 16, 10);
 
     s_ui.bme_temp_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_temp_label, "T: --");
     lv_obj_set_style_text_font(s_ui.bme_temp_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.bme_temp_label, lv_color_hex(0xFF6B6B), 0);
+    lv_obj_set_style_text_color(s_ui.bme_temp_label, pal.accent_temp, 0);
     lv_obj_align(s_ui.bme_temp_label, LV_ALIGN_TOP_LEFT, 16, 52);
 
     s_ui.bme_humi_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_humi_label, "H: --");
     lv_obj_set_style_text_font(s_ui.bme_humi_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.bme_humi_label, lv_color_hex(0x4ECDC4), 0);
+    lv_obj_set_style_text_color(s_ui.bme_humi_label, pal.accent_humi, 0);
     lv_obj_align(s_ui.bme_humi_label, LV_ALIGN_TOP_LEFT, 220, 52);
 
     s_ui.bme_pressure_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_pressure_label, "Pst: --");
     lv_obj_set_style_text_font(s_ui.bme_pressure_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.bme_pressure_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.bme_pressure_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.bme_pressure_label, LV_ALIGN_TOP_LEFT, 16, 82);
 
     s_ui.bme_pressure_sea_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_pressure_sea_label, "P0: --");
     lv_obj_set_style_text_font(s_ui.bme_pressure_sea_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.bme_pressure_sea_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.bme_pressure_sea_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.bme_pressure_sea_label, LV_ALIGN_TOP_LEFT, 16, 112);
 
     s_ui.bme_gas_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_gas_label, "Gas: --");
     lv_obj_set_style_text_font(s_ui.bme_gas_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.bme_gas_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.bme_gas_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.bme_gas_label, LV_ALIGN_TOP_LEFT, 220, 82);
 
     s_ui.bme_altitude_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_altitude_label, "Alt: --");
     lv_obj_set_style_text_font(s_ui.bme_altitude_label, &lv_font_jb_16, 0);
-    lv_obj_set_style_text_color(s_ui.bme_altitude_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.bme_altitude_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.bme_altitude_label, LV_ALIGN_TOP_LEFT, 220, 112);
 
     s_ui.bme_iaq_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_iaq_label, "IAQ: --");
     lv_obj_set_style_text_font(s_ui.bme_iaq_label, &lv_font_jb_32, 0);
-    lv_obj_set_style_text_color(s_ui.bme_iaq_label, lv_color_hex(0xFFB84D), 0);
+    lv_obj_set_style_text_color(s_ui.bme_iaq_label, pal.accent_warm, 0);
     lv_obj_align(s_ui.bme_iaq_label, LV_ALIGN_TOP_LEFT, 16, 150);
 
     s_ui.bme_accuracy_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_accuracy_label, "Acc: --");
     lv_obj_set_style_text_font(s_ui.bme_accuracy_label, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(s_ui.bme_accuracy_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_set_style_text_color(s_ui.bme_accuracy_label, pal.text_secondary, 0);
     lv_obj_align(s_ui.bme_accuracy_label, LV_ALIGN_TOP_LEFT, 260, 158);
 
     lv_obj_t *hint6 = lv_label_create(tile6);
     lv_label_set_text(hint6, "Swipe left or right");
     lv_obj_set_style_text_font(hint6, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hint6, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_set_style_text_color(hint6, pal.text_hint, 0);
     lv_obj_align(hint6, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_add_event_cb(s_ui.tileview, ui_tileview_gesture_cb, LV_EVENT_GESTURE, nullptr);

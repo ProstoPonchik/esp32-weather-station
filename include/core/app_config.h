@@ -96,6 +96,12 @@ constexpr bool APP_BME680_BSEC_CONFIG_28D = BME680_BSEC_CONFIG_28D != 0;
 constexpr const char *APP_BME680_BSEC_NVS_NAMESPACE = "bsec";
 constexpr const char *APP_BME680_BSEC_NVS_KEY = "state";
 
+// UI theme settings (override in config.h)
+#ifndef UI_THEME_LIGHT
+    #define UI_THEME_LIGHT 0
+#endif
+constexpr bool APP_UI_THEME_LIGHT = UI_THEME_LIGHT != 0;
+
 // FT6336U touch I2C (Wire1)
 constexpr int APP_TOUCH_SDA = 40;
 constexpr int APP_TOUCH_SCL = 41;

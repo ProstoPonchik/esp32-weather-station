@@ -1,0 +1,7 @@
+# TODO
+
+- Improve OpenWeather icon visibility in light theme (`UI_THEME_LIGHT=1`): white weather icons blend into light cards/background.
+  - Preferred approach: add a rounded icon background chip (e.g. `#EAF2FF` or `#EEF2F7`) with a subtle border (`#C9D4E3`).
+  - Add a soft shadow/halo behind weather icons for additional contrast.
+  - Optional fallback: slightly darken `weather_card` in light theme (e.g. `#F1F5FA` instead of pure white).
+  - Keep global light theme background unchanged; solve contrast locally around icon elements.

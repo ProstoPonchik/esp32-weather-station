@@ -27,6 +27,7 @@
 // #define BME680_BSEC_CONFIG_28D             0   // 0 = 4d, 1 = 28d profile
 
 // Optional LVGL memory tuning (helpful if HTTPS/TLS fails with low INTERNAL RAM)
+// #define UI_THEME_LIGHT                  1   // 0 = dark (default), 1 = light
 // #define LVGL_USE_DOUBLE_BUFFER             0   // 0 = single buffer, 1 = double buffer
 // #define LVGL_BUFFER_LINES                  80  // lower value saves RAM, but may reduce UI throughput
 
