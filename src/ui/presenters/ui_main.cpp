@@ -38,6 +38,7 @@ struct UiRefs {
     lv_obj_t *bme_temp_label = nullptr;
     lv_obj_t *bme_humi_label = nullptr;
     lv_obj_t *bme_pressure_label = nullptr;
+    lv_obj_t *bme_pressure_sea_label = nullptr;
     lv_obj_t *bme_gas_label = nullptr;
     lv_obj_t *bme_altitude_label = nullptr;
     lv_obj_t *bme_iaq_label = nullptr;
@@ -180,12 +181,14 @@ void ui_update_sensors(const SensorAggregate &snapshot)
     }
 
     if (s_ui.bme_status_label && s_ui.bme_temp_label && s_ui.bme_humi_label && s_ui.bme_pressure_label &&
-        s_ui.bme_gas_label && s_ui.bme_altitude_label && s_ui.bme_iaq_label && s_ui.bme_accuracy_label) {
+        s_ui.bme_pressure_sea_label && s_ui.bme_gas_label && s_ui.bme_altitude_label && s_ui.bme_iaq_label &&
+        s_ui.bme_accuracy_label) {
         if (!snapshot.bme680.valid) {
             lv_label_set_text(s_ui.bme_status_label, "Data: waiting");
             lv_label_set_text(s_ui.bme_temp_label, "T: --");
             lv_label_set_text(s_ui.bme_humi_label, "H: --");
-            lv_label_set_text(s_ui.bme_pressure_label, "P: --");
+            lv_label_set_text(s_ui.bme_pressure_label, "Pst: --");
+            lv_label_set_text(s_ui.bme_pressure_sea_label, "P0: --");
             lv_label_set_text(s_ui.bme_gas_label, "Gas: --");
             lv_label_set_text(s_ui.bme_altitude_label, "Alt: --");
             lv_label_set_text(s_ui.bme_iaq_label, "IAQ: --");
@@ -194,6 +197,7 @@ void ui_update_sensors(const SensorAggregate &snapshot)
             char temp_str[24];
             char humi_str[24];
             char pressure_str[24];
+            char pressure_sea_str[24];
             char gas_str[28];
             char altitude_str[24];
             char iaq_str[24];
@@ -201,7 +205,8 @@ void ui_update_sensors(const SensorAggregate &snapshot)
 
             snprintf(temp_str, sizeof(temp_str), "T: %.1f C", snapshot.bme680.temp_c);
             snprintf(humi_str, sizeof(humi_str), "H: %.0f%%", snapshot.bme680.humidity_pct);
-            snprintf(pressure_str, sizeof(pressure_str), "P: %.1f hPa", snapshot.bme680.pressure_hpa);
+            snprintf(pressure_str, sizeof(pressure_str), "Pst: %.1f hPa", snapshot.bme680.pressure_hpa);
+            snprintf(pressure_sea_str, sizeof(pressure_sea_str), "P0: %.1f hPa", snapshot.bme680.sea_level_pressure_hpa);
             snprintf(gas_str, sizeof(gas_str), "Gas: %.0f ohm", snapshot.bme680.gas_resistance_ohm);
             snprintf(altitude_str, sizeof(altitude_str), "Alt: %.1f m", snapshot.bme680.altitude_m);
             if (snapshot.bme680.iaq_valid) {
@@ -215,6 +220,7 @@ void ui_update_sensors(const SensorAggregate &snapshot)
             lv_label_set_text(s_ui.bme_temp_label, temp_str);
             lv_label_set_text(s_ui.bme_humi_label, humi_str);
             lv_label_set_text(s_ui.bme_pressure_label, pressure_str);
+            lv_label_set_text(s_ui.bme_pressure_sea_label, pressure_sea_str);
             lv_label_set_text(s_ui.bme_gas_label, gas_str);
             lv_label_set_text(s_ui.bme_altitude_label, altitude_str);
             lv_label_set_text(s_ui.bme_iaq_label, iaq_str);
@@ -603,10 +609,16 @@ void ui_init(AppState &state)
     lv_obj_align(s_ui.bme_humi_label, LV_ALIGN_TOP_LEFT, 220, 52);
 
     s_ui.bme_pressure_label = lv_label_create(bme_card);
-    lv_label_set_text(s_ui.bme_pressure_label, "P: --");
+    lv_label_set_text(s_ui.bme_pressure_label, "Pst: --");
     lv_obj_set_style_text_font(s_ui.bme_pressure_label, &lv_font_jb_16, 0);
     lv_obj_set_style_text_color(s_ui.bme_pressure_label, lv_color_hex(0xAFC0D3), 0);
     lv_obj_align(s_ui.bme_pressure_label, LV_ALIGN_TOP_LEFT, 16, 82);
+
+    s_ui.bme_pressure_sea_label = lv_label_create(bme_card);
+    lv_label_set_text(s_ui.bme_pressure_sea_label, "P0: --");
+    lv_obj_set_style_text_font(s_ui.bme_pressure_sea_label, &lv_font_jb_16, 0);
+    lv_obj_set_style_text_color(s_ui.bme_pressure_sea_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_align(s_ui.bme_pressure_sea_label, LV_ALIGN_TOP_LEFT, 16, 112);
 
     s_ui.bme_gas_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_gas_label, "Gas: --");
@@ -618,7 +630,7 @@ void ui_init(AppState &state)
     lv_label_set_text(s_ui.bme_altitude_label, "Alt: --");
     lv_obj_set_style_text_font(s_ui.bme_altitude_label, &lv_font_jb_16, 0);
     lv_obj_set_style_text_color(s_ui.bme_altitude_label, lv_color_hex(0xAFC0D3), 0);
-    lv_obj_align(s_ui.bme_altitude_label, LV_ALIGN_TOP_LEFT, 16, 112);
+    lv_obj_align(s_ui.bme_altitude_label, LV_ALIGN_TOP_LEFT, 220, 112);
 
     s_ui.bme_iaq_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_iaq_label, "IAQ: --");

@@ -21,6 +21,7 @@ struct Bme680Snapshot {
     float temp_c = 0.0f;
     float humidity_pct = 0.0f;
     float pressure_hpa = 0.0f;
+    float sea_level_pressure_hpa = 0.0f;
     float gas_resistance_ohm = 0.0f;
 
     // Derived metric

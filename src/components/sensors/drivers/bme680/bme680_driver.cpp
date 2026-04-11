@@ -257,6 +257,7 @@ bool bme680_driver_read(Bme680Snapshot &snapshot, float reference_pressure_hpa, 
     if (!(ref_hpa > 0.0f)) {
         ref_hpa = APP_BME680_SEA_LEVEL_HPA_DEFAULT;
     }
+    snapshot.sea_level_pressure_hpa = ref_hpa;
 
     if (snapshot.pressure_hpa > 0.0f && ref_hpa > 0.0f) {
         snapshot.altitude_m = 44330.0f * (1.0f - powf(snapshot.pressure_hpa / ref_hpa, 0.1903f));
