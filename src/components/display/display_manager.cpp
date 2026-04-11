@@ -131,15 +131,29 @@ void display_init(AppState &state, display_touch_read_cb_t touch_read_cb)
     Serial.println("Initializing LVGL...");
     lv_init();
 
-    s_buf1 = static_cast<lv_color_t *>(heap_caps_malloc(APP_LVGL_BUFFER_SIZE * sizeof(lv_color_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
-    s_buf2 = static_cast<lv_color_t *>(heap_caps_malloc(APP_LVGL_BUFFER_SIZE * sizeof(lv_color_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
-
-    if (!s_buf1 || !s_buf2) {
-        Serial.println("ERROR: Failed to allocate LVGL buffers!");
+    s_buf1 = static_cast<lv_color_t *>(heap_caps_malloc(APP_LVGL_BUFFER_SIZE * sizeof(lv_color_t),
+                                                        MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
+    if (!s_buf1) {
+        Serial.println("ERROR: Failed to allocate LVGL primary buffer!");
         while (1) delay(1000);
     }
 
+    if (APP_LVGL_USE_DOUBLE_BUFFER) {
+        s_buf2 = static_cast<lv_color_t *>(heap_caps_malloc(APP_LVGL_BUFFER_SIZE * sizeof(lv_color_t),
+                                                            MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
+        if (!s_buf2) {
+            Serial.println("[Display] WARN: secondary LVGL buffer allocation failed, fallback to single buffer");
+        }
+    }
+
     lv_disp_draw_buf_init(&s_disp_buf, s_buf1, s_buf2, APP_LVGL_BUFFER_SIZE);
+    Serial.printf("[Display] LVGL buffer: lines=%u mode=%s\n",
+                  static_cast<unsigned>(APP_LVGL_BUFFER_LINES),
+                  (s_buf2 != nullptr) ? "double" : "single");
+    Serial.printf("[Display] Heap after LVGL buffers: free=%u min=%u largest_internal=%u\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()),
+                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 
     lv_disp_drv_init(&s_disp_drv);
     s_disp_drv.hor_res = APP_LCD_H_RES;

@@ -23,6 +23,8 @@ struct UiRefs {
     lv_obj_t *weather_temp_label = nullptr;
     lv_obj_t *weather_icon_img = nullptr;
     lv_obj_t *weather_sun_label = nullptr;
+    lv_obj_t *weather_uvi_label = nullptr;
+    lv_obj_t *weather_pressure_label = nullptr;
     lv_obj_t *weather_hourly_icon[3] = {nullptr, nullptr, nullptr};
     lv_obj_t *weather_hourly_label[3] = {nullptr, nullptr, nullptr};
     lv_obj_t *weather_daily_icon[3] = {nullptr, nullptr, nullptr};
@@ -37,6 +39,9 @@ struct UiRefs {
     lv_obj_t *bme_humi_label = nullptr;
     lv_obj_t *bme_pressure_label = nullptr;
     lv_obj_t *bme_gas_label = nullptr;
+    lv_obj_t *bme_altitude_label = nullptr;
+    lv_obj_t *bme_iaq_label = nullptr;
+    lv_obj_t *bme_accuracy_label = nullptr;
 
     lv_obj_t *tileview = nullptr;
     lv_obj_t *tile_home = nullptr;
@@ -44,6 +49,7 @@ struct UiRefs {
     lv_obj_t *tile_weather = nullptr;
     lv_obj_t *tile_forecast = nullptr;
     lv_obj_t *tile_sensors_plus = nullptr;
+    lv_obj_t *tile_bme680 = nullptr;
 };
 
 static UiRefs s_ui;
@@ -90,6 +96,21 @@ static const char *climate_source_text(ClimateSource source)
     }
 }
 
+static const char *bme_accuracy_text(uint8_t accuracy)
+{
+    switch (accuracy) {
+        case 3:
+            return "Status: stable";
+        case 2:
+            return "Status: stabilizing";
+        case 1:
+            return "Status: warming";
+        case 0:
+        default:
+            return "Status: run-in";
+    }
+}
+
 static void ui_tileview_gesture_cb(lv_event_t *e)
 {
     lv_obj_t *tv = lv_event_get_target(e);
@@ -112,6 +133,11 @@ static void ui_tileview_gesture_cb(lv_event_t *e)
         if (dir == LV_DIR_TOP) lv_obj_set_tile_id(tv, 2, 0, LV_ANIM_ON);
     } else if (active == s_ui.tile_sensors_plus) {
         if (dir == LV_DIR_RIGHT) lv_obj_set_tile_id(tv, 2, 0, LV_ANIM_ON);
+        if (dir == LV_DIR_LEFT) lv_obj_set_tile_id(tv, 4, 0, LV_ANIM_ON);
+    } else if (active == s_ui.tile_bme680) {
+        // Some touch controllers may report gesture direction with opposite polarity.
+        // Accept both directions so the user can always go back from the last tile.
+        if (dir == LV_DIR_RIGHT || dir == LV_DIR_LEFT) lv_obj_set_tile_id(tv, 3, 0, LV_ANIM_ON);
     }
 
     lv_indev_wait_release(indev);
@@ -154,27 +180,45 @@ void ui_update_sensors(const SensorAggregate &snapshot)
     }
 
     if (s_ui.bme_status_label && s_ui.bme_temp_label && s_ui.bme_humi_label && s_ui.bme_pressure_label &&
-        s_ui.bme_gas_label) {
+        s_ui.bme_gas_label && s_ui.bme_altitude_label && s_ui.bme_iaq_label && s_ui.bme_accuracy_label) {
         if (!snapshot.bme680.valid) {
-            lv_label_set_text(s_ui.bme_status_label, "BME680: unavailable");
+            lv_label_set_text(s_ui.bme_status_label, "Data: waiting");
             lv_label_set_text(s_ui.bme_temp_label, "T: --");
             lv_label_set_text(s_ui.bme_humi_label, "H: --");
             lv_label_set_text(s_ui.bme_pressure_label, "P: --");
             lv_label_set_text(s_ui.bme_gas_label, "Gas: --");
+            lv_label_set_text(s_ui.bme_altitude_label, "Alt: --");
+            lv_label_set_text(s_ui.bme_iaq_label, "IAQ: --");
+            lv_label_set_text(s_ui.bme_accuracy_label, "Acc: --");
         } else {
             char temp_str[24];
             char humi_str[24];
             char pressure_str[24];
-            char gas_str[32];
+            char gas_str[28];
+            char altitude_str[24];
+            char iaq_str[24];
+            char acc_str[24];
+
             snprintf(temp_str, sizeof(temp_str), "T: %.1f C", snapshot.bme680.temp_c);
             snprintf(humi_str, sizeof(humi_str), "H: %.0f%%", snapshot.bme680.humidity_pct);
             snprintf(pressure_str, sizeof(pressure_str), "P: %.1f hPa", snapshot.bme680.pressure_hpa);
             snprintf(gas_str, sizeof(gas_str), "Gas: %.0f ohm", snapshot.bme680.gas_resistance_ohm);
-            lv_label_set_text(s_ui.bme_status_label, "BME680: OK");
+            snprintf(altitude_str, sizeof(altitude_str), "Alt: %.1f m", snapshot.bme680.altitude_m);
+            if (snapshot.bme680.iaq_valid) {
+                snprintf(iaq_str, sizeof(iaq_str), "IAQ: %.1f", snapshot.bme680.static_iaq);
+            } else {
+                snprintf(iaq_str, sizeof(iaq_str), "IAQ: --");
+            }
+            snprintf(acc_str, sizeof(acc_str), "Acc: %u/3", static_cast<unsigned>(snapshot.bme680.iaq_accuracy));
+
+            lv_label_set_text(s_ui.bme_status_label, bme_accuracy_text(snapshot.bme680.iaq_accuracy));
             lv_label_set_text(s_ui.bme_temp_label, temp_str);
             lv_label_set_text(s_ui.bme_humi_label, humi_str);
             lv_label_set_text(s_ui.bme_pressure_label, pressure_str);
             lv_label_set_text(s_ui.bme_gas_label, gas_str);
+            lv_label_set_text(s_ui.bme_altitude_label, altitude_str);
+            lv_label_set_text(s_ui.bme_iaq_label, iaq_str);
+            lv_label_set_text(s_ui.bme_accuracy_label, acc_str);
         }
     }
 }
@@ -193,12 +237,17 @@ void ui_update_time(const TimeSnapshot &snapshot)
 
 void ui_update_weather(const WeatherSnapshot &snapshot)
 {
-    if (!s_ui.weather_temp_label || !s_ui.weather_icon_img || !s_ui.weather_sun_label) return;
+    if (!s_ui.weather_temp_label || !s_ui.weather_icon_img || !s_ui.weather_sun_label || !s_ui.weather_uvi_label ||
+        !s_ui.weather_pressure_label) {
+        return;
+    }
 
     if (!snapshot.valid) {
         lv_label_set_text(s_ui.weather_temp_label, "--\xC2\xB0");
         ui_set_weather_icon(s_ui.weather_icon_img, "03d");
         lv_label_set_text(s_ui.weather_sun_label, "SR --:--  SS --:--");
+        lv_label_set_text(s_ui.weather_uvi_label, "UV Index: --");
+        lv_label_set_text(s_ui.weather_pressure_label, "Pressure: --");
         for (int i = 0; i < 3; i++) {
             if (s_ui.weather_hourly_label[i]) lv_label_set_text(s_ui.weather_hourly_label[i], "--:--  --\xC2\xB0");
             if (s_ui.weather_daily_label[i]) lv_label_set_text(s_ui.weather_daily_label[i], "---  --/--\xC2\xB0");
@@ -215,6 +264,22 @@ void ui_update_weather(const WeatherSnapshot &snapshot)
 
     String sun_line = "SR " + snapshot.sunrise + "  SS " + snapshot.sunset;
     lv_label_set_text(s_ui.weather_sun_label, sun_line.c_str());
+
+    if (snapshot.uvi >= 0.0f) {
+        char uvi_str[24];
+        snprintf(uvi_str, sizeof(uvi_str), "UV Index: %.1f", snapshot.uvi);
+        lv_label_set_text(s_ui.weather_uvi_label, uvi_str);
+    } else {
+        lv_label_set_text(s_ui.weather_uvi_label, "UV Index: --");
+    }
+
+    if (snapshot.pressure_hpa > 0.0f) {
+        char pressure_str[28];
+        snprintf(pressure_str, sizeof(pressure_str), "Pressure: %.0f hPa", snapshot.pressure_hpa);
+        lv_label_set_text(s_ui.weather_pressure_label, pressure_str);
+    } else {
+        lv_label_set_text(s_ui.weather_pressure_label, "Pressure: --");
+    }
 
     for (int i = 0; i < 3; i++) {
         if (snapshot.hourly[i].valid) {
@@ -242,7 +307,7 @@ void ui_update_weather(const WeatherSnapshot &snapshot)
 
 void ui_init(AppState &state)
 {
-    Serial.println("Creating modern tileview UI with weather and sensors pages...");
+    Serial.println("Creating modern tileview UI with BME680 page...");
 
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0A0E1A), 0);
 
@@ -379,7 +444,19 @@ void ui_init(AppState &state)
     lv_label_set_text(s_ui.weather_sun_label, "SR --:--  SS --:--");
     lv_obj_set_style_text_font(s_ui.weather_sun_label, &lv_font_jb_24, 0);
     lv_obj_set_style_text_color(s_ui.weather_sun_label, lv_color_hex(0x7B8FA1), 0);
-    lv_obj_align(s_ui.weather_sun_label, LV_ALIGN_CENTER, 0, 35);
+    lv_obj_align(s_ui.weather_sun_label, LV_ALIGN_CENTER, 0, 22);
+
+    s_ui.weather_uvi_label = lv_label_create(weather_card);
+    lv_label_set_text(s_ui.weather_uvi_label, "UV Index: --");
+    lv_obj_set_style_text_font(s_ui.weather_uvi_label, &lv_font_jb_16, 0);
+    lv_obj_set_style_text_color(s_ui.weather_uvi_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_align(s_ui.weather_uvi_label, LV_ALIGN_CENTER, -90, 56);
+
+    s_ui.weather_pressure_label = lv_label_create(weather_card);
+    lv_label_set_text(s_ui.weather_pressure_label, "Pressure: --");
+    lv_obj_set_style_text_font(s_ui.weather_pressure_label, &lv_font_jb_16, 0);
+    lv_obj_set_style_text_color(s_ui.weather_pressure_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_align(s_ui.weather_pressure_label, LV_ALIGN_CENTER, 100, 56);
 
     lv_obj_t *hint3 = lv_label_create(tile3);
     lv_label_set_text(hint3, "Swipe >  |  Swipe left | Swipe up");
@@ -447,7 +524,7 @@ void ui_init(AppState &state)
     lv_obj_set_style_text_color(hint4, lv_color_hex(0x3D4A5C), 0);
     lv_obj_align(hint4, LV_ALIGN_BOTTOM_MID, 0, -15);
 
-    lv_obj_t *tile5 = lv_tileview_add_tile(s_ui.tileview, 3, 0, LV_DIR_RIGHT);
+    lv_obj_t *tile5 = lv_tileview_add_tile(s_ui.tileview, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     s_ui.tile_sensors_plus = tile5;
     lv_obj_set_style_bg_color(tile5, lv_color_hex(0x0A0E1A), 0);
 
@@ -458,62 +535,78 @@ void ui_init(AppState &state)
     lv_obj_align(title5, LV_ALIGN_TOP_MID, 0, 15);
 
     lv_obj_t *sht_card = lv_obj_create(tile5);
-    lv_obj_set_size(sht_card, 440, 100);
+    lv_obj_set_size(sht_card, 440, 180);
     lv_obj_set_style_bg_color(sht_card, lv_color_hex(0x1A1F2E), 0);
     lv_obj_set_style_radius(sht_card, 18, 0);
     lv_obj_set_style_border_width(sht_card, 0, 0);
     lv_obj_set_style_pad_all(sht_card, 0, 0);
-    lv_obj_align(sht_card, LV_ALIGN_TOP_MID, 0, 60);
+    lv_obj_align(sht_card, LV_ALIGN_CENTER, 0, 10);
 
     s_ui.sht_status_label = lv_label_create(sht_card);
     lv_label_set_text(s_ui.sht_status_label, "SHT41: --");
     lv_obj_set_style_text_font(s_ui.sht_status_label, &lv_font_jb_24, 0);
     lv_obj_set_style_text_color(s_ui.sht_status_label, lv_color_hex(0xAFC0D3), 0);
-    lv_obj_align(s_ui.sht_status_label, LV_ALIGN_TOP_LEFT, 15, 10);
+    lv_obj_align(s_ui.sht_status_label, LV_ALIGN_TOP_LEFT, 20, 18);
 
     s_ui.sht_temp_label = lv_label_create(sht_card);
     lv_label_set_text(s_ui.sht_temp_label, "T: --");
-    lv_obj_set_style_text_font(s_ui.sht_temp_label, &lv_font_jb_16, 0);
+    lv_obj_set_style_text_font(s_ui.sht_temp_label, &lv_font_jb_32, 0);
     lv_obj_set_style_text_color(s_ui.sht_temp_label, lv_color_hex(0xFF6B6B), 0);
-    lv_obj_align(s_ui.sht_temp_label, LV_ALIGN_TOP_LEFT, 15, 52);
+    lv_obj_align(s_ui.sht_temp_label, LV_ALIGN_TOP_LEFT, 20, 70);
 
     s_ui.sht_humi_label = lv_label_create(sht_card);
     lv_label_set_text(s_ui.sht_humi_label, "H: --");
-    lv_obj_set_style_text_font(s_ui.sht_humi_label, &lv_font_jb_16, 0);
+    lv_obj_set_style_text_font(s_ui.sht_humi_label, &lv_font_jb_32, 0);
     lv_obj_set_style_text_color(s_ui.sht_humi_label, lv_color_hex(0x4ECDC4), 0);
-    lv_obj_align(s_ui.sht_humi_label, LV_ALIGN_TOP_LEFT, 180, 52);
+    lv_obj_align(s_ui.sht_humi_label, LV_ALIGN_TOP_LEFT, 240, 70);
 
-    lv_obj_t *bme_card = lv_obj_create(tile5);
-    lv_obj_set_size(bme_card, 440, 120);
+    lv_obj_t *hint5 = lv_label_create(tile5);
+    lv_label_set_text(hint5, "Swipe < or >");
+    lv_obj_set_style_text_font(hint5, &lv_font_jb_24, 0);
+    lv_obj_set_style_text_color(hint5, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_align(hint5, LV_ALIGN_BOTTOM_MID, 0, -15);
+
+    lv_obj_t *tile6 = lv_tileview_add_tile(s_ui.tileview, 4, 0, LV_DIR_RIGHT | LV_DIR_LEFT);
+    s_ui.tile_bme680 = tile6;
+    lv_obj_set_style_bg_color(tile6, lv_color_hex(0x0A0E1A), 0);
+
+    lv_obj_t *title6 = lv_label_create(tile6);
+    lv_label_set_text(title6, "BME680");
+    lv_obj_set_style_text_font(title6, &lv_font_jb_24, 0);
+    lv_obj_set_style_text_color(title6, lv_color_hex(0xFFB84D), 0);
+    lv_obj_align(title6, LV_ALIGN_TOP_MID, 0, 15);
+
+    lv_obj_t *bme_card = lv_obj_create(tile6);
+    lv_obj_set_size(bme_card, 440, 230);
     lv_obj_set_style_bg_color(bme_card, lv_color_hex(0x1A1F2E), 0);
     lv_obj_set_style_radius(bme_card, 18, 0);
     lv_obj_set_style_border_width(bme_card, 0, 0);
     lv_obj_set_style_pad_all(bme_card, 0, 0);
-    lv_obj_align(bme_card, LV_ALIGN_TOP_MID, 0, 175);
+    lv_obj_align(bme_card, LV_ALIGN_CENTER, 0, 8);
 
     s_ui.bme_status_label = lv_label_create(bme_card);
-    lv_label_set_text(s_ui.bme_status_label, "BME680: --");
+    lv_label_set_text(s_ui.bme_status_label, "Status: --");
     lv_obj_set_style_text_font(s_ui.bme_status_label, &lv_font_jb_24, 0);
     lv_obj_set_style_text_color(s_ui.bme_status_label, lv_color_hex(0xFFB84D), 0);
-    lv_obj_align(s_ui.bme_status_label, LV_ALIGN_TOP_LEFT, 15, 10);
+    lv_obj_align(s_ui.bme_status_label, LV_ALIGN_TOP_LEFT, 16, 10);
 
     s_ui.bme_temp_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_temp_label, "T: --");
     lv_obj_set_style_text_font(s_ui.bme_temp_label, &lv_font_jb_16, 0);
     lv_obj_set_style_text_color(s_ui.bme_temp_label, lv_color_hex(0xFF6B6B), 0);
-    lv_obj_align(s_ui.bme_temp_label, LV_ALIGN_TOP_LEFT, 15, 52);
+    lv_obj_align(s_ui.bme_temp_label, LV_ALIGN_TOP_LEFT, 16, 52);
 
     s_ui.bme_humi_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_humi_label, "H: --");
     lv_obj_set_style_text_font(s_ui.bme_humi_label, &lv_font_jb_16, 0);
     lv_obj_set_style_text_color(s_ui.bme_humi_label, lv_color_hex(0x4ECDC4), 0);
-    lv_obj_align(s_ui.bme_humi_label, LV_ALIGN_TOP_LEFT, 180, 52);
+    lv_obj_align(s_ui.bme_humi_label, LV_ALIGN_TOP_LEFT, 220, 52);
 
     s_ui.bme_pressure_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_pressure_label, "P: --");
     lv_obj_set_style_text_font(s_ui.bme_pressure_label, &lv_font_jb_16, 0);
     lv_obj_set_style_text_color(s_ui.bme_pressure_label, lv_color_hex(0xAFC0D3), 0);
-    lv_obj_align(s_ui.bme_pressure_label, LV_ALIGN_TOP_LEFT, 15, 82);
+    lv_obj_align(s_ui.bme_pressure_label, LV_ALIGN_TOP_LEFT, 16, 82);
 
     s_ui.bme_gas_label = lv_label_create(bme_card);
     lv_label_set_text(s_ui.bme_gas_label, "Gas: --");
@@ -521,11 +614,29 @@ void ui_init(AppState &state)
     lv_obj_set_style_text_color(s_ui.bme_gas_label, lv_color_hex(0xAFC0D3), 0);
     lv_obj_align(s_ui.bme_gas_label, LV_ALIGN_TOP_LEFT, 220, 82);
 
-    lv_obj_t *hint5 = lv_label_create(tile5);
-    lv_label_set_text(hint5, "Swipe right");
-    lv_obj_set_style_text_font(hint5, &lv_font_jb_24, 0);
-    lv_obj_set_style_text_color(hint5, lv_color_hex(0x3D4A5C), 0);
-    lv_obj_align(hint5, LV_ALIGN_BOTTOM_MID, 0, -15);
+    s_ui.bme_altitude_label = lv_label_create(bme_card);
+    lv_label_set_text(s_ui.bme_altitude_label, "Alt: --");
+    lv_obj_set_style_text_font(s_ui.bme_altitude_label, &lv_font_jb_16, 0);
+    lv_obj_set_style_text_color(s_ui.bme_altitude_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_align(s_ui.bme_altitude_label, LV_ALIGN_TOP_LEFT, 16, 112);
+
+    s_ui.bme_iaq_label = lv_label_create(bme_card);
+    lv_label_set_text(s_ui.bme_iaq_label, "IAQ: --");
+    lv_obj_set_style_text_font(s_ui.bme_iaq_label, &lv_font_jb_32, 0);
+    lv_obj_set_style_text_color(s_ui.bme_iaq_label, lv_color_hex(0xFFB84D), 0);
+    lv_obj_align(s_ui.bme_iaq_label, LV_ALIGN_TOP_LEFT, 16, 150);
+
+    s_ui.bme_accuracy_label = lv_label_create(bme_card);
+    lv_label_set_text(s_ui.bme_accuracy_label, "Acc: --");
+    lv_obj_set_style_text_font(s_ui.bme_accuracy_label, &lv_font_jb_24, 0);
+    lv_obj_set_style_text_color(s_ui.bme_accuracy_label, lv_color_hex(0xAFC0D3), 0);
+    lv_obj_align(s_ui.bme_accuracy_label, LV_ALIGN_TOP_LEFT, 260, 158);
+
+    lv_obj_t *hint6 = lv_label_create(tile6);
+    lv_label_set_text(hint6, "Swipe left or right");
+    lv_obj_set_style_text_font(hint6, &lv_font_jb_24, 0);
+    lv_obj_set_style_text_color(hint6, lv_color_hex(0x3D4A5C), 0);
+    lv_obj_align(hint6, LV_ALIGN_BOTTOM_MID, 0, -15);
 
     lv_obj_add_event_cb(s_ui.tileview, ui_tileview_gesture_cb, LV_EVENT_GESTURE, nullptr);
 

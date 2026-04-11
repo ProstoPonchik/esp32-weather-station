@@ -17,10 +17,25 @@ struct Sht41Snapshot {
 };
 
 struct Bme680Snapshot {
+    // Raw metrics from BSEC/BME680 pipeline
     float temp_c = 0.0f;
     float humidity_pct = 0.0f;
     float pressure_hpa = 0.0f;
     float gas_resistance_ohm = 0.0f;
+
+    // Derived metric
+    float altitude_m = 0.0f;
+
+    // BSEC outputs
+    float static_iaq = 0.0f;
+    uint8_t iaq_accuracy = 0;
+    bool iaq_valid = false;
+
+    // Service state
+    bool data_valid = false;
+    uint32_t last_bsec_run_ms = 0;
+    uint32_t last_publish_ms = 0;
+
     bool valid = false;
     uint32_t updated_ms = 0;
 };
@@ -61,6 +76,8 @@ struct WeatherSnapshot {
     };
 
     float temp_c = 0.0f;
+    float pressure_hpa = 0.0f;
+    float uvi = -1.0f;
     String description = "";
     String icon_code = "";
     String sunrise = "";

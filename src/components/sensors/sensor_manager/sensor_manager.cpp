@@ -7,7 +7,7 @@
 #include "components/sensors/drivers/sht41/sht41_driver.h"
 #include "core/app_config.h"
 
-static bool s_next_read_sht41 = true;
+static uint32_t s_last_sht41_update_ms = 0;
 
 static void promote_primary_from_sht41(AppState &state)
 {
@@ -48,21 +48,28 @@ static void read_sht41(AppState &state)
     state.sensors.sht41.valid = false;
 }
 
-static void read_bme680(AppState &state)
+static float bme680_reference_pressure_hpa(const AppState &state)
+{
+    if (state.weather.valid && state.weather.pressure_hpa >= 300.0f && state.weather.pressure_hpa <= 1200.0f) {
+        return state.weather.pressure_hpa;
+    }
+    return APP_BME680_SEA_LEVEL_HPA_DEFAULT;
+}
+
+static void tick_bme680(AppState &state, uint32_t now_ms)
 {
     if (!state.bme680_available) {
         state.sensors.bme680.valid = false;
         return;
     }
 
+    bme680_driver_run(now_ms);
+
     Bme680Snapshot snapshot = state.sensors.bme680;
-    if (bme680_driver_read(snapshot)) {
+    if (bme680_driver_read(snapshot, bme680_reference_pressure_hpa(state), now_ms)) {
         state.sensors.bme680 = snapshot;
         promote_primary_from_bme680(state);
-        return;
     }
-
-    state.sensors.bme680.valid = false;
 }
 
 void sensor_manager_init(AppState &state)
@@ -76,17 +83,17 @@ void sensor_manager_init(AppState &state)
     state.bme680_available = bme680_driver_init(Wire);
 
     if (state.bme680_available) {
-        Serial.printf("[BME680] active address: 0x%02X\n", bme680_driver_address());
+        Serial.printf("[BME680/BSEC] active address: 0x%02X\n", bme680_driver_address());
     }
 
-    s_next_read_sht41 = true;
+    s_last_sht41_update_ms = 0;
     state.sensors = {};
 }
 
 void sensor_manager_read_initial(AppState &state)
 {
     read_sht41(state);
-    read_bme680(state);
+    tick_bme680(state, millis());
 
     if (!state.sensors.primary.valid) {
         state.sensors.primary.source = ClimateSource::None;
@@ -95,28 +102,27 @@ void sensor_manager_read_initial(AppState &state)
 
 void sensor_manager_tick(AppState &state)
 {
+    uint32_t now = millis();
+
     if (!state.sht41_available && !state.bme680_available) {
         state.sensors.primary.valid = false;
         state.sensors.primary.source = ClimateSource::None;
         return;
     }
 
-    if (state.sht41_available && state.bme680_available) {
-        if (s_next_read_sht41) {
-            read_sht41(state);
-        } else {
-            read_bme680(state);
-        }
-        s_next_read_sht41 = !s_next_read_sht41;
-        return;
-    }
-
-    if (state.sht41_available) {
+    if (state.sht41_available && (now - s_last_sht41_update_ms >= APP_SENSOR_UPDATE_INTERVAL_MS)) {
+        s_last_sht41_update_ms = now;
         read_sht41(state);
-        return;
     }
 
-    read_bme680(state);
+    if (state.bme680_available) {
+        tick_bme680(state, now);
+    }
+
+    if (!state.sensors.sht41.valid && !state.sensors.bme680.valid) {
+        state.sensors.primary.valid = false;
+        state.sensors.primary.source = ClimateSource::None;
+    }
 }
 
 const SensorAggregate &sensor_manager_get(const AppState &state)

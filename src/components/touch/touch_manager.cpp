@@ -16,17 +16,38 @@ static bool s_touch_pressed = false;
 static bool s_prev_pressed = false;
 static uint32_t s_last_poll_ms = 0;
 
+static uint16_t clamp_coord(int32_t value, int32_t max_value)
+{
+    if (value < 0) return 0;
+    if (value > max_value) return static_cast<uint16_t>(max_value);
+    return static_cast<uint16_t>(value);
+}
+
+static void map_touch_to_screen(uint16_t raw_x, uint16_t raw_y, uint16_t &screen_x, uint16_t &screen_y)
+{
+    // Panel is rotated (swap XY). Clamp final coordinates so LVGL never gets out-of-range values.
+    int32_t mapped_x = static_cast<int32_t>(raw_y);
+    int32_t mapped_y = static_cast<int32_t>(APP_LCD_V_RES - 1) - static_cast<int32_t>(raw_x);
+    screen_x = clamp_coord(mapped_x, APP_LCD_H_RES - 1);
+    screen_y = clamp_coord(mapped_y, APP_LCD_V_RES - 1);
+}
+
 void touch_lvgl_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
+    (void)drv;
+
     if (!s_touch_available) {
         data->state = LV_INDEV_STATE_RELEASED;
         return;
     }
 
     if (s_touch_pressed) {
+        uint16_t x = 0;
+        uint16_t y = 0;
+        map_touch_to_screen(s_touch_x, s_touch_y, x, y);
         data->state = LV_INDEV_STATE_PRESSED;
-        data->point.x = s_touch_y;
-        data->point.y = APP_LCD_V_RES - s_touch_x;
+        data->point.x = x;
+        data->point.y = y;
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
     }
@@ -75,8 +96,7 @@ void touch_poll(AppState &state, TouchPoint &point)
     uint32_t now = millis();
     if (now - s_last_poll_ms < APP_TOUCH_POLL_INTERVAL_MS) {
         if (s_touch_pressed) {
-            point.x = s_touch_y;
-            point.y = APP_LCD_V_RES - s_touch_x;
+            map_touch_to_screen(s_touch_x, s_touch_y, point.x, point.y);
             point.pressed = true;
         }
         point.just_pressed = point.pressed && !s_prev_pressed;
@@ -114,8 +134,7 @@ void touch_poll(AppState &state, TouchPoint &point)
             }
             s_touch_pressed = true;
 
-            point.x = s_touch_y;
-            point.y = APP_LCD_V_RES - s_touch_x;
+            map_touch_to_screen(s_touch_x, s_touch_y, point.x, point.y);
             point.pressed = true;
         } else {
             s_touch_pressed = false;

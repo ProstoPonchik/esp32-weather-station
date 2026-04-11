@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <esp_heap_caps.h>
 #include <math.h>
 #include <time.h>
 
@@ -106,23 +108,55 @@ bool network_read_time(TimeSnapshot &snapshot)
 
 void weather_update(AppState &state)
 {
-    if (!state.wifi_connected) return;
+    if (!state.wifi_connected) {
+        Serial.println("[Weather][DBG] Skip update: WiFi disconnected");
+        return;
+    }
 
     HTTPClient http;
+    WiFiClientSecure secure_client;
     String url = "https://api.openweathermap.org/data/3.0/onecall?lat=" + String(APP_WEATHER_LAT, 4) +
                  "&lon=" + String(APP_WEATHER_LON, 4) +
                  "&units=metric&exclude=minutely,alerts&appid=" + String(APP_WEATHER_API_KEY);
 
     Serial.println("[Weather] Fetching weather...");
-    http.begin(url);
+    Serial.printf("[Weather][DBG] URL: %s\n", url.c_str());
+    Serial.printf("[Weather][DBG] Heap before HTTPS: free=%u min=%u largest=%u largest_internal=%u free_internal=%u\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()),
+                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+                  static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+
+    // Reduce TLS overhead (certificate verification can be expensive on constrained RAM).
+    secure_client.setInsecure();
+    secure_client.setTimeout(15000);
+    http.setConnectTimeout(15000);
+    http.setTimeout(15000);
+    http.setReuse(false);
+
+    if (!http.begin(secure_client, url)) {
+        Serial.println("[Weather] ERROR: http.begin failed");
+        return;
+    }
     int http_code = http.GET();
+    Serial.printf("[Weather][DBG] HTTP code: %d\n", http_code);
+    Serial.printf("[Weather][DBG] Heap after GET: free=%u min=%u largest=%u largest_internal=%u free_internal=%u\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()),
+                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+                  static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+                  static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 
     if (http_code == 200) {
-        String payload = http.getString();
+        int content_len = http.getSize();
+        Serial.printf("[Weather][DBG] Payload size(header): %d bytes\n", content_len);
         // Filter now includes hourly[0..7] and daily[0..7], so keep enough headroom.
         DynamicJsonDocument filter(4096);
         filter["timezone_offset"] = true;
         filter["current"]["temp"] = true;
+        filter["current"]["pressure"] = true;
+        filter["current"]["uvi"] = true;
         filter["current"]["dt"] = true;
         filter["current"]["sunrise"] = true;
         filter["current"]["sunset"] = true;
@@ -145,14 +179,29 @@ void weather_update(AppState &state)
         if (filter.overflowed()) {
             Serial.println("[Weather] ERROR: JSON filter document overflow");
         }
+        Serial.printf("[Weather][DBG] Filter mem usage: %u / %u\n",
+                      static_cast<unsigned>(filter.memoryUsage()),
+                      static_cast<unsigned>(filter.capacity()));
 
         DynamicJsonDocument doc(16384);
-        DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+        DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+        Serial.printf("[Weather][DBG] Deserialize status: %s\n", error ? error.c_str() : "ok");
+        Serial.printf("[Weather][DBG] Doc mem usage: %u / %u\n",
+                      static_cast<unsigned>(doc.memoryUsage()),
+                      static_cast<unsigned>(doc.capacity()));
 
         if (!error) {
             if (doc.overflowed()) {
                 Serial.println("[Weather] ERROR: JSON payload document overflow");
             }
+            Serial.printf("[Weather][DBG] Field present: temp=%d pressure=%d uvi=%d sunrise=%d sunset=%d icon=%d desc=%d\n",
+                          doc["current"]["temp"].isNull() ? 0 : 1,
+                          doc["current"]["pressure"].isNull() ? 0 : 1,
+                          doc["current"]["uvi"].isNull() ? 0 : 1,
+                          doc["current"]["sunrise"].isNull() ? 0 : 1,
+                          doc["current"]["sunset"].isNull() ? 0 : 1,
+                          doc["current"]["weather"][0]["icon"].isNull() ? 0 : 1,
+                          doc["current"]["weather"][0]["description"].isNull() ? 0 : 1);
 
             int32_t timezone_offset = doc["timezone_offset"] | 0;
             uint32_t api_now_utc = doc["current"]["dt"] | 0;
@@ -161,10 +210,18 @@ void weather_update(AppState &state)
             }
 
             state.weather.temp_c = doc["current"]["temp"];
+            state.weather.pressure_hpa = doc["current"]["pressure"] | 0.0f;
+            state.weather.uvi = doc["current"]["uvi"] | -1.0f;
             state.weather.description = doc["current"]["weather"][0]["description"].as<String>();
             state.weather.icon_code = normalize_icon_code(doc["current"]["weather"][0]["icon"].as<String>());
             state.weather.sunrise = format_time_hhmm(doc["current"]["sunrise"] | 0, timezone_offset);
             state.weather.sunset = format_time_hhmm(doc["current"]["sunset"] | 0, timezone_offset);
+            Serial.printf("[Weather][DBG] Parsed current: temp=%.2f pressure=%.1f uvi=%.2f icon=%s desc=%s\n",
+                          state.weather.temp_c,
+                          state.weather.pressure_hpa,
+                          state.weather.uvi,
+                          state.weather.icon_code.c_str(),
+                          state.weather.description.c_str());
 
             for (int i = 0; i < 3; i++) state.weather.hourly[i].valid = false;
 
@@ -265,14 +322,22 @@ void weather_update(AppState &state)
             state.weather.valid = true;
             state.weather.updated_ms = millis();
 
+            Serial.printf("[Weather][DBG] Selected blocks: hourly=%d daily=%d\n", out_idx, daily_out_idx);
             Serial.printf("[Weather] Temp: %.1fC, icon=%s\n", state.weather.temp_c, state.weather.icon_code.c_str());
         } else {
-            Serial.printf("[Weather] JSON parse error: %s (payload=%u bytes)\n",
-                          error.c_str(),
-                          static_cast<unsigned>(payload.length()));
+            Serial.printf("[Weather] JSON parse error: %s\n", error.c_str());
         }
     } else {
         Serial.printf("[Weather] HTTP error: %d\n", http_code);
+        if (http_code > 0) {
+            String error_body = http.getString();
+            int preview_len = error_body.length() > 240 ? 240 : error_body.length();
+            String preview = error_body.substring(0, preview_len);
+            preview.replace('\n', ' ');
+            if (preview.length() > 0) {
+                Serial.printf("[Weather][DBG] Error body: %s\n", preview.c_str());
+            }
+        }
         if (http_code == 401) {
             Serial.println("[Weather] API key might be invalid or inactive");
         }

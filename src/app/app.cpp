@@ -62,11 +62,8 @@ void app_loop()
         display_set_sleep(s_state, true);
     }
 
-    if (now - s_state.last_sensor_update_ms > APP_SENSOR_UPDATE_INTERVAL_MS) {
-        s_state.last_sensor_update_ms = now;
-        sensor_manager_tick(s_state);
-        ui_update_sensors(sensor_manager_get(s_state));
-    }
+    sensor_manager_tick(s_state);
+    ui_update_sensors(sensor_manager_get(s_state));
 
     if (s_state.wifi_connected && now - s_state.last_time_update_ms > APP_TIME_UPDATE_INTERVAL_MS) {
         s_state.last_time_update_ms = now;

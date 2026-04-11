@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This project now uses a component-oriented layout with a central orchestrator (`app`) and a shared runtime state (`AppState`).
+This project uses a component-oriented layout with a central orchestrator (`app`) and shared runtime state (`AppState`).
 
 ## Module Map
 
@@ -12,7 +12,7 @@ main.cpp
       -> components/network/*          (WiFi connect, NTP, OpenWeather API)
       -> components/sensors/sensor_manager/*
           -> drivers/sht41/*           (SHT41 init/read)
-          -> drivers/bme680/*          (BME680 init/read, forced mode)
+          -> drivers/bme680/*          (BME680 via BSEC2 + state persistence)
       -> ui/presenters/*               (tile creation + UI updates)
       -> ui/assets/*                   (fonts, weather icons)
 
@@ -26,9 +26,9 @@ Shared config/types:
 - `AppState` is the single source of runtime truth (`wifi_connected`, sensor availability flags, timers, snapshots).
 - `SensorAggregate` stores:
   - `sht41`
-  - `bme680`
+  - `bme680` (raw + BSEC + derived)
   - `primary` climate snapshot (`temp/humidity + source`)
-- `sensor_manager` updates sensor snapshots and promotes the last valid reading to `primary`.
+- `sensor_manager` updates sensor snapshots and promotes latest valid reading to `primary`.
 - UI only renders snapshots and does not access hardware directly.
 
 ## Sensor Flow
@@ -37,18 +37,27 @@ Shared config/types:
 
 1. Init shared sensor I2C bus (`Wire`, GPIO1/GPIO2).
 2. Init SHT41 driver.
-3. Init BME680 driver with auto-address fallback (`0x76` -> `0x77`).
-4. Perform initial reads of both sensors.
-5. Promote latest valid reading to `primary`.
+3. Init BME680 BSEC2 driver with address fallback (`0x76` -> `0x77`).
+4. Load BSEC state from NVS (if available).
+5. Perform initial reads and render placeholders until first valid samples arrive.
 
 ### Loop
 
-- Every `APP_SENSOR_UPDATE_INTERVAL_MS`, `sensor_manager_tick` runs.
-- If both sensors are available, reads are alternated:
-  - tick N: SHT41
-  - tick N+1: BME680
-- If only one sensor is available, manager reads only that sensor.
-- Home screen is fed from `primary`; Sensors+ screen shows each sensor separately.
+- `sensor_manager_tick()` is called every loop iteration.
+- SHT41 uses its own interval (`APP_SENSOR_UPDATE_INTERVAL_MS`).
+- BME680/BSEC2 runs by BSEC internal `next_call` timing (LP profile ~3s).
+- BME680 publish gate is `APP_BME680_PUBLISH_INTERVAL_MS` (default 3000ms).
+- BSEC state is periodically persisted to NVS and also saved when IAQ reaches stable accuracy.
+
+## BME680 Metrics
+
+BME680 snapshot contains:
+- Raw: `temperature`, `humidity`, `pressure`, `gas_resistance`
+- BSEC: `static_iaq`, `iaq_accuracy`, `iaq_valid`
+- Derived: `altitude`
+
+`altitude` is computed from pressure:
+- reference pressure = weather pressure (if available), otherwise `APP_BME680_SEA_LEVEL_HPA_DEFAULT`.
 
 ## UI Tiles
 
@@ -56,11 +65,12 @@ Shared config/types:
 - `TIME`: local time/date.
 - `WEATHER`: current weather card.
 - `FORECAST`: hourly/daily forecast rows.
-- `SENSORS+`: dedicated SHT41 panel and BME680 panel (T/H/P/Gas raw).
+- `SENSORS+`: SHT41-only panel.
+- `BME680`: dedicated page with raw metrics, altitude, IAQ, and IAQ accuracy status.
 
 ## Design Rules
 
 - Keep hardware IO inside component drivers/services.
-- Keep scheduling decisions in `app/app.cpp`.
+- Keep scheduling decisions in `app/app.cpp` and `sensor_manager`.
 - Keep rendering logic in UI presenter module.
-- Prefer additive changes to snapshots and config constants over hidden globals.
+- Prefer additive, explicit state fields over hidden globals.

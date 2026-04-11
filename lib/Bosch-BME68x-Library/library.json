@@ -14,6 +14,6 @@
   "frameworks": "*",
   "platforms": "*",
   "build": {
-    "includeDir": "src/bme68x"
+    "includeDir": "src"
   }
 }

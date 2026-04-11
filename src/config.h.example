@@ -1,6 +1,6 @@
 /*
  * Configuration Template
- * 
+ *
  * Copy this file to config.h and fill in your actual credentials.
  * The config.h file is ignored by git to keep your secrets safe.
  */
@@ -17,9 +17,18 @@
 #define WEATHER_LON     14.2858  // Your longitude
 #define WEATHER_API_KEY "YOUR_API_KEY_HERE"  // Get free key from openweathermap.org
 
-// Optional BME680 overrides
-// #define BME680_ENABLED            1
-// #define BME680_I2C_ADDR_PRIMARY   0x76
-// #define BME680_I2C_ADDR_SECONDARY 0x77
+// Optional BME680 + BSEC2 overrides
+// #define BME680_ENABLED                     1
+// #define BME680_BSEC_ENABLED                1
+// #define BME680_I2C_ADDR_PRIMARY            0x76
+// #define BME680_I2C_ADDR_SECONDARY          0x77
+// #define BME680_PUBLISH_INTERVAL_MS         3000
+// #define BME680_SEA_LEVEL_HPA_DEFAULT       1013.25f
+// #define BME680_BSEC_STATE_SAVE_INTERVAL_MS 600000
+// #define BME680_BSEC_CONFIG_28D             0   // 0 = 4d, 1 = 28d profile
+
+// Optional LVGL memory tuning (helpful if HTTPS/TLS fails with low INTERNAL RAM)
+// #define LVGL_USE_DOUBLE_BUFFER             0   // 0 = single buffer, 1 = double buffer
+// #define LVGL_BUFFER_LINES                  80  // lower value saves RAM, but may reduce UI throughput
 
 #endif
